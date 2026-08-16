@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === iPhone 17 Air optimalizácia === */
+/* 100dvh = dynamic viewport height (rieši mobile address bar skok) */
+:root {
+  --app-height: 100dvh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  html,
+  body {
+    height: 100%;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg text-slate-100 font-sans antialiased;
+    margin: 0;
+    padding: 0;
+    /* Zabráni pull-to-refresh a bounce na iOS */
+    overflow: hidden;
+  }
+
+  #root {
+    height: var(--app-height);
+    /* Fallback pre staršie prehliadače */
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Skry scrollbar ale zachovaj scroll */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  /* App shell — fixed na 100dvh, obsah scrolluje vnútri */
+  .app-shell {
+    height: 100dvh;
+    height: var(--app-height);
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* Hlavný obsah — scroll medzi headerom a bottom nav */
+  .app-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-top: var(--safe-top);
+  }
+
+  /* Bottom navigation s safe area */
+  .bottom-nav {
+    padding-bottom: var(--safe-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Header s safe area */
+  .app-header {
+    padding-top: var(--safe-top);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Tlačidlá */
+  .btn-primary {
+    @apply bg-cta text-bg font-semibold py-4 px-6 rounded-2xl w-full
+           active:scale-[0.98] transition-transform duration-100
+           disabled:opacity-40 disabled:active:scale-100;
+  }
+
+  .btn-secondary {
+    @apply border border-slate-700 text-slate-200 font-medium py-4 px-6 rounded-2xl w-full
+           active:scale-[0.98] transition-transform duration-100;
+  }
+
+  /* Karty */
+  .card {
+    @apply bg-bg-surface border border-white/5 rounded-2xl;
+  }
+
+  /* Input */
+  .input {
+    @apply bg-bg-surface border border-slate-700 rounded-xl px-4 py-3
+           text-slate-100 placeholder:text-slate-500
+           focus:outline-none focus:border-cta transition-colors w-full;
+  }
+}
