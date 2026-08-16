@@ -17,6 +17,10 @@ export default {
         danger: "#ef4444", // red-500
         success: "#34d399", // emerald-400
       },
+      borderColor: {
+        danger: "#ef4444",
+        accent: "#60a5fa",
+      },
       fontFamily: {
         sans: [
           "-apple-system",

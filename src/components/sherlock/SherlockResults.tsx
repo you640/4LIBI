@@ -9,6 +9,7 @@ import {
   AlertIcon,
   CheckIcon,
 } from "../Icons";
+import { AlibiShareCard } from "../share/AlibiShareCard";
 
 interface SherlockResultsProps {
   analysis: Analysis;
@@ -20,6 +21,7 @@ type Tab = "timeline" | "persons" | "evidence" | "relationships";
 export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
   const [activeTab, setActiveTab] = useState<Tab>("timeline");
   const [search, setSearch] = useState("");
+  const [showShare, setShowShare] = useState(false);
 
   // Chronologické zoradenie timeline (od najstaršej po najnovšiu)
   const sortedTimeline = useMemo(() => {
@@ -98,6 +100,17 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
         </div>
       )}
 
+      {/* Share tlacidlo */}
+      {contradictionCount > 0 && (
+        <button
+          onClick={() => setShowShare(true)}
+          className="btn-secondary flex items-center justify-center gap-2 mb-4 text-sm"
+        >
+          <AlertIcon className="w-4 h-4 text-danger" />
+          Zdieľať rozpor
+        </button>
+      )}
+
       {/* Tab navigácia — horizontálny scroll */}
       <div className="flex gap-1 mb-4 overflow-x-auto no-scrollbar">
         {TABS.map(({ id, label, count, Icon }) => (
@@ -151,6 +164,11 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
           persons={analysis.persons}
         />
       )}
+
+      {/* Alibi Impossible share modal */}
+      {showShare && (
+        <AlibiShareCard analysis={analysis} onClose={() => setShowShare(false)} />
+      )}
     </div>
   );
 }
@@ -196,9 +214,9 @@ function Timeline({
             <div
               className={`absolute -left-[13px] top-3 w-3.5 h-3.5 rounded-full border-2 border-bg ${
                 isContradiction
-                  ? "bg-danger"
+                  ? "bg-danger ring-2 ring-danger/30"
                   : isAlibi
-                  ? "bg-accent"
+                  ? "bg-accent ring-2 ring-accent/30"
                   : "bg-slate-600"
               }`}
             />
@@ -206,14 +224,26 @@ function Timeline({
             {/* Karta eventu */}
             <button
               onClick={() => setExpanded(isExpanded ? null : event.id)}
-              className="card w-full p-3 text-left transition-colors hover:border-white/10"
+              className={`card w-full p-3 text-left transition-colors hover:border-white/10 ${
+                  isContradiction
+                    ? "border-l-danger border-l-2"
+                    : isAlibi
+                    ? "border-l-accent border-l-2"
+                    : ""
+                }`}
             >
               <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-slate-500 mb-0.5">
                     {formatTime(event.timestamp)}
                   </p>
-                  <h3 className="text-sm font-semibold text-slate-100 leading-tight">
+                  <h3 className={`text-sm font-semibold leading-tight ${
+                      isContradiction
+                        ? "text-danger"
+                        : isAlibi
+                        ? "text-accent"
+                        : "text-slate-100"
+                    }`}>
                     {event.title}
                   </h3>
                 </div>
