@@ -1,6 +1,6 @@
 # 🔥 ForenzDetectiv — SUPER MEGA BACKLOG
 
-> **Vízia:** Premeniť ForenzDetectiv na **najlepší forenzný nástroj na svete** — AI, ktorá v spise nájde rozpor a nemožné alibi, s citátom zo zdroja, nie s dohadom.
+> **Vízia:** Premeniť ForenzDetectiv na **najlepší forenzný nástroj na svete** — v spise, ktorý ste prečítali stokrát, nájdete rozpor za sekundu a uvidíte presné miesto, kde sa lúšti alibi.
 >
 > **North Star Metric:** `Weekly Active Investigators` s aspoň 1 `contradiction_viewed` — nie raw DAU.
 >
@@ -749,7 +749,7 @@
 
 # 🎯 USP veta (vsade)
 
-> **"Prvá slovenská AI, ktorá v spise nájde rozpor a nemožné alibi — s citátom zo zdroja, nie s dohadom."**
+> **"V spise, ktorý ste prečítali stokrát, nájdete rozpor za sekundu — a uvidíte presné miesto, kde sa lúšti alibi."**
 
 # 🧭 North Star
 
