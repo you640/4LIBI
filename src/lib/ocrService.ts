@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 export interface OCROptions {
   apiKey?: string;
   model?: string;
@@ -20,7 +18,7 @@ export class OCRService {
   private maxRetries: number;
 
   constructor(options: OCROptions = {}) {
-    this.apiKey = options.apiKey || process.env.MISTRAL_API_KEY || '';
+    this.apiKey = options.apiKey || (typeof process !== 'undefined' ? process.env?.MISTRAL_API_KEY : '') || '';
     this.model = options.model || 'pixtral-large-latest';
     this.maxRetries = options.maxRetries || 3;
   }
@@ -35,9 +33,13 @@ export class OCRService {
     while (attempts < this.maxRetries) {
       try {
         attempts++;
-        const response = await axios.post(
-          'https://api.mistral.ai/v1/chat/completions',
-          {
+        const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
             model: this.model,
             messages: [
               {
@@ -55,17 +57,16 @@ export class OCRService {
               }
             ],
             temperature: 0.1
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.apiKey}`
-            },
-            timeout: 60000
-          }
-        );
+          })
+        });
 
-        const rawText = response.data?.choices?.[0]?.message?.content || '';
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Mistral OCR response error ${response.status}: ${errText}`);
+        }
+
+        const data: any = await response.json();
+        const rawText = data?.choices?.[0]?.message?.content || '';
         const cleanedText = this.cleanTextForSearch(rawText);
 
         return {

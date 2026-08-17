@@ -1,8 +1,6 @@
-// Geospatiálny a cestovný motor pre Alibi Forenznú Platformu.
-// Vypočítava vzdialenosti medzi slovenskými a európskymi mestami,
-// minimálny potrebný čas na presun a deteguje fyzikálne nemožné alibi.
-import { parseTimeToMinutes } from './forenzCore';
-import type { GeoLocation, TravelFeasibilityResult } from '../types';
+// Geospatiálny a cestovný motor pre Alibi Forenznú Platformu (Server)
+import { parseTimeToMinutes } from '../src/lib/forenzCore';
+import type { GeoLocation, TravelFeasibilityResult } from '../src/types';
 
 export const SLOVAK_LOCATIONS: Record<string, GeoLocation> = {
   bratislava: { lat: 48.1486, lng: 17.1077 },
@@ -104,14 +102,13 @@ export function getDistanceBetweenLocationsKm(locA: string, locB: string): numbe
 
   if (!coordsA || !coordsB) return null;
   const directKm = haversineDistanceKm(coordsA, coordsB);
-  // Reálny cestný koeficient (cesty nie sú priamky)
   return Math.round(directKm * 1.25);
 }
 
 export function getMinimumTravelMinutes(distanceKm: number, isHighway = true): number {
   const avgSpeedKmh = isHighway ? 105 : 70;
   const hours = distanceKm / avgSpeedKmh;
-  const bufferMinutes = 15; // zápchy, semafory, parkovanie
+  const bufferMinutes = 15;
   return Math.round(hours * 60 + bufferMinutes);
 }
 

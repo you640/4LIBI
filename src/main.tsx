@@ -3,10 +3,22 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initSentry } from "./lib/sentry";
+import { registerSW } from "virtual:pwa-register";
 import "./index.css";
 
-// Inicializuj Sentry pred renderom (Issue #2 — S1.1.3)
+// Inicializuj Sentry pred renderom
 initSentry();
+
+// Registrácia PWA Service Workera pre offline asset caching a auto-update
+const updateSW = registerSW({
+  onNeedRefresh() {
+    console.log("[PWA] K dispozícii je nová verzia aplikácie.");
+    updateSW(true);
+  },
+  onOfflineReady() {
+    console.log("[PWA] Aplikácia je pripravená na offline použitie.");
+  },
+});
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

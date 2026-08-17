@@ -1,5 +1,5 @@
 import { callMistralApi } from "./mistralApi";
-import { truncateText } from "./pdfParser";
+import { chunkDocument, mergeAnalysisResults } from "./documentChunker";
 import { extractTextFromBytes } from "./extractDocumentText";
 import {
   SHERLOCK_SYSTEM_PROMPT,
@@ -15,21 +15,14 @@ export type SourceDocument = {
   bytes: ArrayBuffer;
 };
 
-async function analyzeText(
+async function analyzeSingleChunk(
   text: string,
   documentName: string,
-  apiKey: string,
-  startTime = Date.now()
+  apiKey: string
 ): Promise<Analysis> {
-  const truncatedText = truncateText(text);
-  console.log(
-    `[Sherlock] Text extrahovaný (${text.length} znakov, po skrátení ${truncatedText.length})`
-  );
-
-  console.log("[Sherlock] Volám Mistral API…");
   const messages = [
     { role: "system" as const, content: SHERLOCK_SYSTEM_PROMPT },
-    { role: "user" as const, content: buildUserPrompt(truncatedText) },
+    { role: "user" as const, content: buildUserPrompt(text) },
   ];
 
   let llmResponse = await callMistralApi(messages, {
@@ -64,14 +57,40 @@ async function analyzeText(
     throw new Error("Mistral API vrátil neplatný formát JSON. Skúste znova.");
   }
 
+  return analysisData;
+}
+
+async function analyzeText(
+  text: string,
+  documentName: string,
+  apiKey: string,
+  startTime = Date.now()
+): Promise<Analysis> {
+  const chunks = chunkDocument(text);
+  console.log(
+    `[Sherlock] Text rozdelený na ${chunks.length} blokov pre analýzu (celkovo ${text.length} znakov)`
+  );
+
+  const partialAnalyses: Analysis[] = [];
+
+  for (const chunk of chunks) {
+    console.log(
+      `[Sherlock] Analyzujem blok ${chunk.index + 1}/${chunk.totalChunks} (${chunk.text.length} znakov)…`
+    );
+    const chunkResult = await analyzeSingleChunk(chunk.text, documentName, apiKey);
+    partialAnalyses.push(chunkResult);
+  }
+
+  const merged = mergeAnalysisResults(partialAnalyses, documentName);
+
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   console.log(
     `[Sherlock] Analýza dokončená za ${duration}s — ${
-      analysisData.timeline?.length || 0
-    } timeline eventov, ${analysisData.persons?.length || 0} osôb`
+      merged.timeline?.length || 0
+    } timeline eventov, ${merged.persons?.length || 0} osôb`
   );
 
-  return analysisData;
+  return merged;
 }
 
 export async function analyzeFilesFromBytes(

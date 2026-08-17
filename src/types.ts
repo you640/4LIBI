@@ -105,16 +105,19 @@ export interface ForensicClaim {
 
 export interface Contradiction {
   id: string;
+  case_id?: string;
+  title?: string;
   claim_a_id?: string;
   claim_b_id?: string;
   document_a_id?: string;
   document_b_id?: string;
   entity_ref?: string;
-  type: ContradictionType;
+  type?: ContradictionType | string;
+  contradiction_type?: ContradictionType | string;
   severity: Severity;
-  confidence: number;
+  confidence?: number;
   explanation?: string;
-  status: ContradictionStatus;
+  status?: ContradictionStatus;
   document_id?: string;
   document_title?: string;
 }

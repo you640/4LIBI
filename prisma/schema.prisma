@@ -8,12 +8,18 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  files     File[]
-  analyses  Analysis[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id              String            @id @default(cuid())
+  email           String            @unique
+  passwordHash    String?
+  files           File[]
+  analyses        Analysis[]
+  ocrResults      OcrResult[]
+  conversationLogs ConversationLog[]
+  geospatialChecks GeospatialCheck[]
+  auditLogs       AuditLog[]
+  hitlStatuses    HitlStatusRecord[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 }
 
 model File {
@@ -38,12 +44,90 @@ model Analysis {
   owner        User     @relation(fields: [ownerId], references: [id])
   name         String
   data         Json?
-  status       String
+  status       String   @default("queued")
   errorMessage String?
+  metadata     Json?    // Stores file count, email, queuedAt, etc.
   files        File[]
+  hitlStatuses HitlStatusRecord[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([ownerId, status])
+  @@index([status, createdAt])
   @@map("analyses")
+}
+
+model HitlStatusRecord {
+  id         String   @id @default(cuid())
+  analysisId String
+  analysis   Analysis @relation(fields: [analysisId], references: [id])
+  eventId    String
+  status     String   // "open" | "confirmed" | "dismissed"
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@unique([analysisId, eventId])
+  @@index([analysisId])
+  @@index([ownerId])
+  @@map("hitl_statuses")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  details   Json?
+  timestamp DateTime @default(now())
+
+  @@index([action, timestamp])
+  @@index([userId, timestamp])
+  @@map("audit_logs")
+}
+
+model OcrResult {
+  id               String    @id @default(cuid())
+  ownerId          String
+  owner            User      @relation(fields: [ownerId], references: [id])
+  fileName         String
+  mimeType         String
+  sourceType       String
+  extractedText    String
+  processingTimeMs Int
+  sha256Hash       String
+  caseId           String?
+  createdAt        DateTime  @default(now())
+
+  @@index([ownerId, createdAt])
+  @@map("ocr_results")
+}
+
+model ConversationLog {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  userMessage String
+  history     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([ownerId, createdAt])
+  @@map("conversation_logs")
+}
+
+model GeospatialCheck {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  personName  String?
+  locationA   String?
+  timeA       String?
+  locationB   String?
+  timeB       String?
+  result      Json?
+  createdAt   DateTime @default(now())
+
+  @@index([ownerId, createdAt])
+  @@map("geospatial_checks")
 }

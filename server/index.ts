@@ -6,11 +6,10 @@ import crypto from "node:crypto";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { Prisma } from "../generated/client";
-import { analyzeFilesFromBytes } from "../src/lib/analyzeCore";
-import { getLocalUser, prisma } from "./prisma";
+import { prisma, logAuditAction } from "./prisma";
 import { createOCRService } from "./ocrService";
 import { evaluateTravelFeasibility } from "./geospatialEngine";
+import { queueAnalysisJob, getJobProgress, type AnalysisJobData, startQueueProcessing } from "./queue";
 
 const PORT = 5176;
 const MAX_FILES = 20;
@@ -20,6 +19,90 @@ const UPLOAD_DIR = path.resolve(
   "../uploads"
 );
 
+// ============================================
+// SECURITY: Rate Limiting Store
+// ============================================
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function rateLimitMiddleware(limit: number = 30, windowMs: number = 60 * 1000) {
+  return async (c: any, next: () => Promise<void>) => {
+    const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "127.0.0.1";
+    const now = Date.now();
+    const key = `rate_limit:${ip}`;
+    
+    const entry = rateLimitStore.get(key);
+    if (entry && entry.resetAt > now) {
+      if (entry.count >= limit) {
+        return c.json(
+          { error: `Príliš veľa požiadaviek. Skúste znova za ${Math.ceil((entry.resetAt - now) / 1000)}s.` },
+          429
+        );
+      }
+      entry.count++;
+    } else {
+      rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    }
+    
+    await next();
+  };
+}
+
+// ============================================
+// AUTHENTICATION
+// ============================================
+type Variables = {
+  ownerId: string;
+  userEmail: string;
+};
+
+async function authMiddleware(c: any, next: () => Promise<void>) {
+  const path = c.req.path;
+  
+  // Skip auth for health check endpoint
+  if (path === "/api/health") {
+    c.ownerId = "system";
+    c.userEmail = "system@forenzdetectiv.local";
+    return await next();
+  }
+  
+  // Development mode: allow x-owner-id header or use default
+  if (process.env.NODE_ENV === "development" && !process.env.ENABLE_AUTH) {
+    const devOwnerId = c.req.header("x-owner-id");
+    c.ownerId = devOwnerId || "dev_local_user";
+    c.userEmail = "dev@forenzdetectiv.local";
+    return await next();
+  }
+  
+  // Check for Bearer token (JWT)
+  const authHeader = c.req.header("Authorization");
+  const apiKey = c.req.header("x-api-key");
+  
+  // Option 1: JWT Bearer token
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    try {
+      const jwt = await import("jsonwebtoken");
+      const secret = process.env.JWT_SECRET || "forenzdetectiv-secret-key-change-me";
+      const decoded = jwt.verify(token, secret) as { userId: string; email: string };
+      
+      c.ownerId = decoded.userId;
+      c.userEmail = decoded.email;
+      return await next();
+    } catch {
+      return c.json({ error: "Neplatný autentifikačný token" }, 401);
+    }
+  }
+  
+  // Option 2: API Key authentication
+  if (apiKey && apiKey === process.env.API_KEY) {
+    c.ownerId = "api_user";
+    c.userEmail = "api@forenzdetectiv.local";
+    return await next();
+  }
+  
+  return c.json({ error: "Vyžaduje sa autentifikácia" }, 401);
+}
+
 function sanitizeName(name: string): string {
   return name.replace(/[^\w.\- ()[\]]+/g, "_").slice(0, 180) || "document";
 }
@@ -28,9 +111,35 @@ function isUploadedFile(value: FormDataEntryValue): value is File {
   return typeof File !== "undefined" && value instanceof File;
 }
 
-const app = new Hono();
+const app = new Hono<{ Variables: Variables }>();
 
-app.use("/api/*", cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [
+  "http://localhost:5173",
+  "http://localhost:5175",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5175",
+  "http://localhost:3000",
+  "https://forenzdetectiv.sk",
+  "https://www.forenzdetectiv.sk"
+];
+
+app.use(
+  "/api/*",
+  cors({
+    origin: (origin) => {
+      if (!origin) return "*";
+      return allowedOrigins.includes(origin) ? origin : "*";
+    },
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Owner-Id"],
+    exposeHeaders: ["Content-Length", "X-Request-Id"],
+    credentials: true,
+    maxAge: 86400
+  })
+);
+
+app.use("/api/*", rateLimitMiddleware(60, 60 * 1000));
+app.use("/api/*", authMiddleware);
 
 app.onError((err, c) => {
   console.error(err);
@@ -53,7 +162,7 @@ app.onError((err, c) => {
   );
 });
 
-// 1. Sherlock Batch Analysis
+// 1. Sherlock Batch Analysis (Asynchronous Job Queue)
 app.post("/api/analyze", async (c) => {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) {
@@ -69,15 +178,28 @@ app.post("/api/analyze", async (c) => {
     return c.json({ error: `Maximálne ${MAX_FILES} súborov.` }, 400);
   }
 
-  const user = await getLocalUser();
+  const ownerId = c.get("ownerId") || "dev_local_user";
+  const userEmail = c.get("userEmail") || "dev@forenzdetectiv.local";
   const fallbackName =
     entries.length === 1 ? entries[0].name : `${entries.length} dokumentov`;
 
+  // Log audit action
+  await logAuditAction(ownerId, "analysis_start", {
+    fileCount: entries.length,
+    totalSize: entries.reduce((sum, f) => sum + (f as any).size, 0),
+    names: entries.map((f: any) => f.name),
+  });
+
+  // Create analysis record
   const analysis = await prisma.analysis.create({
     data: {
-      ownerId: user.id,
+      ownerId,
       name: fallbackName,
-      status: "analyzing",
+      status: "queued",
+      metadata: {
+        email: userEmail,
+        fileCount: entries.length
+      }
     },
   });
 
@@ -85,7 +207,7 @@ app.post("/api/analyze", async (c) => {
   await mkdir(analysisDir, { recursive: true });
 
   try {
-    const docs: { name: string; mime: string; bytes: ArrayBuffer }[] = [];
+    const docs: { name: string; mime: string; bytes: ArrayBuffer; size: number }[] = [];
 
     for (const [index, file] of entries.entries()) {
       if (file.size > MAX_FILE_BYTES) {
@@ -99,7 +221,7 @@ app.post("/api/analyze", async (c) => {
 
       await prisma.file.create({
         data: {
-          ownerId: user.id,
+          ownerId,
           name: file.name,
           storagePath,
           contentType: file.type || "application/octet-stream",
@@ -112,25 +234,47 @@ app.post("/api/analyze", async (c) => {
         name: file.name,
         mime: file.type || "",
         bytes,
+        size: file.size,
       });
     }
 
-    const data = await analyzeFilesFromBytes(docs, apiKey);
-    const updated = await prisma.analysis.update({
+    const filePaths: AnalysisJobData["filePaths"] = [];
+    for (let i = 0; i < docs.length; i++) {
+      const storedName = `${i + 1}-${sanitizeName(docs[i].name)}`;
+      const storagePath = path.join(analysisDir, storedName);
+      filePaths.push({
+        name: docs[i].name,
+        path: storagePath,
+        mime: docs[i].mime,
+        size: docs[i].size,
+      });
+    }
+    
+    await queueAnalysisJob({
+      analysisId: analysis.id,
+      ownerId,
+      filePaths,
+      apiKey,
+    });
+    
+    await prisma.analysis.update({
       where: { id: analysis.id },
       data: {
-        status: "ready",
-        data: data as unknown as Prisma.InputJsonValue,
-        name: data.metadata?.document_name || fallbackName,
-      },
+        status: "queued",
+        metadata: {
+          ...(analysis.metadata as object || {}),
+          files: docs.map(d => ({ name: d.name, mime: d.mime, size: d.size })),
+          queuedAt: new Date().toISOString()
+        }
+      }
     });
 
     return c.json({
-      id: updated.id,
-      name: updated.name,
-      status: updated.status,
-      createdAt: updated.createdAt,
-      data: updated.data,
+      id: analysis.id,
+      name: analysis.name,
+      status: "queued",
+      createdAt: analysis.createdAt,
+      message: "Analýza bola zaradená do spracovania.",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -142,16 +286,26 @@ app.post("/api/analyze", async (c) => {
   }
 });
 
-// 2. ForenzDetectiv Direct Analysis (Text & Vision)
+// Job Progress
+app.get("/api/analyses/:id/progress", async (c) => {
+  const analysisId = c.req.param("id");
+  const progress = await getJobProgress(analysisId);
+  return c.json(progress);
+});
+
+// 2. ForenzDirect Analysis (Text & Vision)
 app.post("/api/forenz/analyze", async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const { text, image_url, title, apiKey: clientApiKey } = body;
+  const { text, image_url, title } = body;
 
   if (!text && !image_url) {
     return c.json({ error: "Chýba text výpovede alebo obrázok dokumentu." }, 400);
   }
 
-  const apiKey = clientApiKey || process.env.MISTRAL_API_KEY;
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "Server API key not configured" }, 500);
+  }
 
   if (apiKey && apiKey.trim().length > 10) {
     try {
@@ -212,7 +366,6 @@ Výstup MUSÍ byť VŽDY v čistom JSON formáte:
     }
   }
 
-  // Lokálny deterministický fallback
   const rawText = String(text || "");
   const timeMatches = Array.from(rawText.matchAll(/(\b[0-2]?[0-9][:.][0-5][0-9]\b)/g)).map(m => m[1]);
 
@@ -232,6 +385,7 @@ Výstup MUSÍ byť VŽDY v čistom JSON formáte:
 
 // 3. Forenz OCR Endpoint
 app.post("/api/forenz/ocr", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
   const { fileBase64, fileName, mimeType, caseId } = body;
 
@@ -243,6 +397,19 @@ app.post("/api/forenz/ocr", async (c) => {
     const ocrService = createOCRService();
     const result = await ocrService.extractFromImageBase64(fileBase64, mimeType || "image/jpeg");
     const sha256 = crypto.createHash("sha256").update(fileBase64).digest("hex");
+
+    await prisma.ocrResult.create({
+      data: {
+        ownerId,
+        fileName: fileName || "dokument",
+        mimeType: mimeType || "image/jpeg",
+        sourceType: result.sourceType,
+        extractedText: result.text,
+        processingTimeMs: result.processingTimeMs,
+        sha256Hash: sha256,
+        caseId: caseId || null,
+      }
+    });
 
     return c.json({
       success: true,
@@ -264,13 +431,22 @@ app.post("/api/forenz/ocr", async (c) => {
 
 // 4. Conversational Forensic Agent Chat
 app.post("/api/agent/chat", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
-  const apiKey = process.env.MISTRAL_API_KEY || "";
+  const apiKey = process.env.MISTRAL_API_KEY;
   const { message, history } = body;
 
   if (!message) {
     return c.json({ error: "Správa nemôže byť prázdna." }, 400);
   }
+
+  await prisma.conversationLog.create({
+    data: {
+      ownerId,
+      userMessage: message,
+      history: history as any,
+    }
+  });
 
   if (!apiKey) {
     return c.json({
@@ -327,8 +503,20 @@ app.post("/api/agent/chat", async (c) => {
 
 // 5. Geospatial Feasibility Check
 app.post("/api/geospatial/check", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
   const { locA, timeA, locB, timeB, personName } = body;
+
+  await prisma.geospatialCheck.create({
+    data: {
+      ownerId,
+      locationA: locA,
+      timeA,
+      locationB: locB,
+      timeB,
+      personName,
+    }
+  });
 
   const result = evaluateTravelFeasibility(locA, timeA, locB, timeB, personName);
   return c.json({ success: true, result });
@@ -336,22 +524,27 @@ app.post("/api/geospatial/check", async (c) => {
 
 // Analysis CRUD
 app.get("/api/analyses", async (c) => {
-  const user = await getLocalUser();
+  const ownerId = c.get("ownerId") || "dev_local_user";
   const rows = await prisma.analysis.findMany({
-    where: { ownerId: user.id },
+    where: { ownerId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, status: true, createdAt: true },
+    select: { id: true, name: true, status: true, createdAt: true, metadata: true },
   });
   return c.json(rows);
 });
 
 app.get("/api/analyses/:id", async (c) => {
-  const user = await getLocalUser();
+  const ownerId = c.get("ownerId") || "dev_local_user";
   const row = await prisma.analysis.findFirst({
-    where: { id: c.req.param("id"), ownerId: user.id },
+    where: { id: c.req.param("id"), ownerId },
+    include: {
+      files: {
+        select: { id: true, name: true, size: true, contentType: true }
+      }
+    }
   });
   if (!row) {
-    return c.json({ error: "Spis sa nenašiel." }, 404);
+    return c.json({ error: "Spis sa nenašiel alebo nemáte oprávnenie." }, 404);
   }
   return c.json({
     id: row.id,
@@ -360,10 +553,141 @@ app.get("/api/analyses/:id", async (c) => {
     createdAt: row.createdAt,
     errorMessage: row.errorMessage,
     data: row.data,
+    metadata: row.metadata,
+    files: row.files,
+  });
+});
+
+// 6. HITL Contradiction Status Endpoints
+app.get("/api/analyses/:id/hitl", async (c) => {
+  const analysisId = c.req.param("id");
+  const records = await prisma.hitlStatusRecord.findMany({
+    where: { analysisId },
+  });
+  const map: Record<string, string> = {};
+  for (const r of records) {
+    map[r.eventId] = r.status;
+  }
+  return c.json({ success: true, statuses: map });
+});
+
+app.post("/api/analyses/:id/hitl", async (c) => {
+  const analysisId = c.req.param("id");
+  const ownerId = c.get("ownerId") || "dev_local_user";
+  const body = await c.req.json().catch(() => ({}));
+  const { eventId, status } = body;
+
+  if (!eventId || !status) {
+    return c.json({ error: "Chýba eventId alebo status" }, 400);
+  }
+
+  const updated = await prisma.hitlStatusRecord.upsert({
+    where: {
+      analysisId_eventId: {
+        analysisId,
+        eventId,
+      },
+    },
+    update: { status },
+    create: {
+      analysisId,
+      eventId,
+      status,
+      ownerId,
+    },
+  });
+
+  return c.json({ success: true, record: updated });
+});
+
+// 7. Audit Log Endpoints
+app.get("/api/audit-logs", async (c) => {
+  const limit = Math.min(Number(c.req.query("limit") || 100), 500);
+  const logs = await prisma.auditLog.findMany({
+    take: limit,
+    orderBy: { timestamp: "desc" },
+  });
+  return c.json({ success: true, logs });
+});
+
+app.post("/api/audit-logs", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
+  const body = await c.req.json().catch(() => ({}));
+  const { action, details } = body;
+
+  if (!action) {
+    return c.json({ error: "Chýba action" }, 400);
+  }
+
+  const log = await prisma.auditLog.create({
+    data: {
+      action,
+      userId: ownerId,
+      details: details ? details : undefined,
+    },
+  });
+
+  return c.json({ success: true, log });
+});
+
+// Job Progress Endpoint
+app.get("/api/analyses/:id/progress", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
+  const analysisId = c.req.param("id");
+  
+  // Verify ownership
+  const analysis = await prisma.analysis.findFirst({
+    where: { id: analysisId, ownerId },
+    select: { id: true, status: true, errorMessage: true },
+  });
+  
+  if (!analysis) {
+    return c.json({ error: "Spis sa nenašiel alebo nemáte oprávnenie." }, 404);
+  }
+  
+  const progress = await getJobProgress(analysisId);
+  return c.json({
+    analysisId,
+    status: analysis.status,
+    errorMessage: analysis.errorMessage,
+    progress,
+  });
+});
+
+// Health check endpoint (no auth required)
+app.get("/api/health", (c) => {
+  return c.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+  });
+});
+
+// SSE Endpoint for real-time progress updates (simplified for now)
+app.get("/api/analyses/:id/sse", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
+  const analysisId = c.req.param("id");
+  
+  // Verify ownership
+  const analysis = await prisma.analysis.findFirst({
+    where: { id: analysisId, ownerId },
+  });
+  
+  if (!analysis) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  
+  // Return current progress
+  const progress = await getJobProgress(analysisId);
+  
+  return c.json({
+    type: "progress",
+    data: progress,
   });
 });
 
 function listen(attempt = 0) {
+  startQueueProcessing();
   const server = serve(
     {
       fetch: app.fetch,
@@ -372,6 +696,7 @@ function listen(attempt = 0) {
     },
     (info) => {
       console.log(`[api] http://127.0.0.1:${info.port}`);
+      console.log(`[Queue] Worker ready to process jobs`);
     }
   );
 
@@ -389,5 +714,20 @@ function listen(attempt = 0) {
     throw err;
   });
 }
+
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  console.log("[Server] Shutting down gracefully...");
+  const { shutdownQueue } = await import("./queue");
+  await shutdownQueue();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  console.log("[Server] Shutting down gracefully...");
+  const { shutdownQueue } = await import("./queue");
+  await shutdownQueue();
+  process.exit(0);
+});
 
 listen();

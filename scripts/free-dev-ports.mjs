@@ -1,10 +1,6 @@
 import { execSync } from "node:child_process";
 
-const ports = process.argv
-  .slice(2)
-  .map(Number)
-  .filter((port) => Number.isInteger(port) && port > 0);
-
+const ports = process.argv.slice(2).map(Number).filter(Boolean);
 if (ports.length === 0) {
   ports.push(5175, 5176);
 }
@@ -16,7 +12,7 @@ function listeningPids(port) {
     if (!line.includes("LISTENING")) continue;
     const parts = line.trim().split(/\s+/);
     const local = parts[1] ?? "";
-    const pid = parts[parts.length - 1];
+    const pid = parts.at(-1);
     if (local.endsWith(`:${port}`) && pid && pid !== "0") {
       pids.add(pid);
     }
@@ -26,11 +22,11 @@ function listeningPids(port) {
 
 for (const port of ports) {
   for (const pid of listeningPids(port)) {
+    console.log(`[dev] freeing :${port} (pid ${pid})`);
     try {
-      execSync(`taskkill /F /PID ${pid}`, { stdio: "inherit" });
-      console.log(`[dev] freed :${port} (pid ${pid})`);
+      execSync(`taskkill /PID ${pid} /F /T`, { stdio: "inherit" });
     } catch {
-      console.log(`[dev] could not free :${port} (pid ${pid})`);
+      /* already gone */
     }
   }
 }

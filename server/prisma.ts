@@ -13,6 +13,7 @@ function createPrismaClient() {
   }
   return new PrismaClient({
     adapter: new PrismaPg({ connectionString }),
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 }
 
@@ -21,8 +22,6 @@ export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
-
-export const LOCAL_USER_EMAIL = "local@forenzdetectiv.local";
 
 async function withDbRetry<T>(fn: () => Promise<T>): Promise<T> {
   let last: unknown;
@@ -42,12 +41,126 @@ async function withDbRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw last;
 }
 
-export async function getLocalUser() {
+// ============================================
+// USER AUTHENTICATION FUNCTIONS
+// ============================================
+
+export async function getUserById(userId: string) {
+  return withDbRetry(() => prisma.user.findUnique({ where: { id: userId } }));
+}
+
+export async function getUserByEmail(email: string) {
+  return withDbRetry(() => prisma.user.findUnique({ where: { email } }));
+}
+
+export async function createUser(email: string, passwordHash?: string) {
   return withDbRetry(() =>
-    prisma.user.upsert({
-      where: { email: LOCAL_USER_EMAIL },
-      update: {},
-      create: { email: LOCAL_USER_EMAIL },
+    prisma.user.create({
+      data: { email, passwordHash: passwordHash || null },
+    })
+  );
+}
+
+// ============================================
+// AUDIT LOG FUNCTIONS (Server-side, not localStorage)
+// ============================================
+
+export async function logAuditAction(
+  ownerId: string,
+  action: string,
+  details?: Record<string, any>
+) {
+  return withDbRetry(() =>
+    prisma.auditLog.create({
+      data: {
+        action,
+        userId: ownerId || null,
+        details: sanitizeAuditDetails(details),
+      },
+    })
+  );
+}
+
+function sanitizeAuditDetails(details: Record<string, any> | undefined): Record<string, any> {
+  if (!details) return {};
+  const sanitized: Record<string, any> = {};
+  const sensitiveKeys = ["password", "token", "apikey", "secret", "email", "phone"];
+  
+  for (const [key, value] of Object.entries(details)) {
+    if (sensitiveKeys.some(s => key.toLowerCase().includes(s))) {
+      sanitized[key] = "[REDACTED]";
+    } else if (typeof value === "string" && value.length > 1000) {
+      sanitized[key] = value.slice(0, 1000) + "...";
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+}
+
+export async function getAuditLogs(ownerId?: string, limit: number = 100) {
+  return withDbRetry(() =>
+    prisma.auditLog.findMany({
+      where: ownerId ? { userId: ownerId } : undefined,
+      orderBy: { timestamp: "desc" },
+      take: limit,
+    })
+  );
+}
+
+// ============================================
+// HITL FUNCTIONS (Server-side, not localStorage)
+// ============================================
+
+export type HitlStatus = "open" | "confirmed" | "dismissed";
+
+export async function getHitlStatus(analysisId: string, eventId: string) {
+  return withDbRetry(() =>
+    prisma.hitlStatusRecord.findUnique({
+      where: {
+        analysisId_eventId: {
+          analysisId,
+          eventId,
+        },
+      },
+    })
+  );
+}
+
+export async function setHitlStatus(
+  analysisId: string,
+  eventId: string,
+  ownerId: string,
+  status: HitlStatus
+) {
+  return withDbRetry(() =>
+    prisma.hitlStatusRecord.upsert({
+      where: {
+        analysisId_eventId: {
+          analysisId,
+          eventId,
+        },
+      },
+      create: {
+        analysisId,
+        eventId,
+        status,
+        ownerId,
+      },
+      update: { status },
+    })
+  );
+}
+
+export async function getAllHitlForAnalysis(analysisId: string, ownerId?: string, eventIds?: string[]) {
+  return withDbRetry(() =>
+    prisma.hitlStatusRecord.findMany({
+      where: {
+        analysisId,
+        ...(eventIds && eventIds.length > 0 ? { eventId: { in: eventIds } } : {}),
+        ...(ownerId ? { ownerId } : {}),
+      },
     })
   );
 }

@@ -1,12 +1,11 @@
 // Court Dossier Generator — kompilácia forenznej správy pre súdne konanie a obhajobu
-import type { Analysis, Contradiction } from '../types';
+import type { Analysis } from '../types';
 
 export function generateCourtDossierMarkdown(analysis: Analysis, caseNumber = 'ČVS: PP-104/2026'): string {
   const meta = analysis.metadata || { document_name: 'Forenzný spis', upload_date: new Date().toISOString() };
   const persons = analysis.persons || [];
   const timeline = analysis.timeline || [];
   const contradictions = analysis.contradictions || [];
-  const claims = analysis.claims || [];
 
   return `# FORENZNÁ ZPRÁVA A ANALÝZA ALIBI
 **Spisová značka:** ${caseNumber}  

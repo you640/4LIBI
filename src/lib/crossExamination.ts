@@ -4,7 +4,7 @@
  */
 
 import { callMistralApi } from './mistralApi';
-import type { CrossExamQuestion, Contradiction, ForensicClaim, ForenzDocument } from '../types';
+import type { CrossExamQuestion, Contradiction } from '../types';
 
 export const CROSS_EXAM_MODES = {
   mild: {
@@ -29,7 +29,6 @@ export const CROSS_EXAM_MODES = {
 
 export function buildLocalCrossExamQuestions(
   contradictions: Contradiction[] = [],
-  claims: ForensicClaim[] = [],
   mode: 'mild' | 'aggressive' | 'alibi' = 'aggressive'
 ): CrossExamQuestion[] {
   const questions: CrossExamQuestion[] = [];
@@ -82,7 +81,7 @@ export async function generateCrossExamWithMistral(
   mode: 'mild' | 'aggressive' | 'alibi' = 'aggressive'
 ): Promise<CrossExamQuestion[]> {
   if (!apiKey) {
-    return buildLocalCrossExamQuestions(contradictions, [], mode);
+    return buildLocalCrossExamQuestions(contradictions, mode);
   }
 
   const systemPrompt = `Si elitný advokát a forenzný vyšetrovateľ. Tvojou úlohou je vygenerovať ostré, precízne a právne podložené konfrontačné otázky na krížový výsluch (cross-examination) na základe zistených rozporov vo vyšetrovacom spise.
@@ -125,5 +124,5 @@ Výstup MUSÍ byť čistý JSON v tomto formáte:
     console.warn('[CrossExam] Mistral fallback to local rules:', err);
   }
 
-  return buildLocalCrossExamQuestions(contradictions, [], mode);
+  return buildLocalCrossExamQuestions(contradictions, mode);
 }

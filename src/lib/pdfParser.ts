@@ -35,7 +35,7 @@ export async function extractTextFromPdf(
       .map((item: any) => item.str)
       .join(" ");
 
-    fullText += pageText + "\n\n";
+    fullText += `--- STRANA ${i} ---\n` + pageText + "\n\n";
   }
 
   return fullText.trim();
@@ -58,9 +58,37 @@ export function estimateTokens(text: string): number {
 }
 
 /**
- * Skráti text na maximálnu dĺžku (pre veľké dokumenty).
+ * Rozdelí text na chunky pre LLM spracovanie.
+ * Každý chunk má maximálne maxChars znakov s prekryvom (overlap) pre kontext.
  */
-export function truncateText(text: string, maxChars = 120000): string {
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "\n\n[Dokument bol skrátený kvôli limitu LLM]";
+export function chunkText(text: string, maxChars: number = 120000, overlap: number = 10000): string[] {
+  if (text.length <= maxChars) {
+    return [text];
+  }
+  
+  const chunks: string[] = [];
+  let start = 0;
+  
+  while (start < text.length) {
+    const end = Math.min(start + maxChars, text.length);
+    chunks.push(text.slice(start, end));
+    
+    // Posun sa o (maxChars - overlap) alebo ak je to posledný chunk, skonči
+    if (end === text.length) {
+      break;
+    }
+    start = end - overlap;
+  }
+  
+  return chunks;
+}
+
+/**
+ * Zastaraná funkcia - NEPOUŽÍVAŇ
+ * @deprecated Použite chunkText() namiesto toho, aby sa ned strácalo text z dokumentov!
+ */
+export function truncateText(text: string, maxChars?: number): string {
+  console.warn("[CRITICAL] truncateText() užívate na dokumentoch > 30 strán? POUŽITE chunkText()!");
+  if (!maxChars || text.length <= maxChars) return text;
+  return text.slice(0, maxChars);
 }
