@@ -16,6 +16,18 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    host: "127.0.0.1",
+    port: 4173,
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:5176",
+        changeOrigin: true,
+        timeout: 180000,
+        proxyTimeout: 180000,
+      },
+    },
+  },
   build: {
     outDir: "dist",
     sourcemap: true,
