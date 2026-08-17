@@ -4,6 +4,14 @@ import { SherlockAnalyzer } from "../components/sherlock/SherlockAnalyzer";
 import { SherlockResults } from "../components/sherlock/SherlockResults";
 import { DEMO_ANALYSIS, type Analysis } from "../types";
 import { ArrowLeftIcon } from "../components/Icons";
+import {
+  trackDemoLaunched,
+  trackCaseCreated,
+  trackAnalysisStarted,
+  trackContradictionDetected,
+  trackErrorOccurred,
+} from "../lib/analytics";
+import { auditCaseCreate } from "../lib/auditLog";
 
 export function SherlockPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,22 +32,75 @@ export function SherlockPage() {
   const runDemoAnalysis = () => {
     setIsAnalyzing(true);
     setError(null);
+
+    // S3.1 — track demo_launched
+    trackDemoLaunched({ source: "home_cta" });
+
+    // S1.5 — audit log
+    auditCaseCreate({ fileCount: 1, source: "demo" });
+
     // Simulácia analýzy (1.5s podľa S2.2.1)
     setTimeout(() => {
       setAnalysis(DEMO_ANALYSIS);
       setIsAnalyzing(false);
+
+      // S1.4 — track contradiction_detected (na demo s isDemo: true)
+      const contradictionCount = DEMO_ANALYSIS.timeline.filter((e) =>
+        e.tags.includes("rozpor")
+      ).length;
+      if (contradictionCount > 0) {
+        trackContradictionDetected({
+          count: contradictionCount,
+          hasAlibiConflict: true,
+          caseId: "demo-ba-ke",
+          isDemo: true,
+        });
+      }
     }, 1500);
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     setIsAnalyzing(true);
     setError(null);
-    // TODO: Volanie Convex analyze action (Issue #10)
-    // Zatiaľ len demo
-    setTimeout(() => {
+
+    // S3.1 — track analysis_started + case_created
+    trackAnalysisStarted({ fileCount: 1, source: tab });
+    trackCaseCreated({ fileCount: 1, source: tab });
+    auditCaseCreate({ fileCount: 1, source: tab });
+
+    try {
+      // Reálny backend call cez Convex (Issue #10 — S4.2)
+      // Keďže ešte nie je pripojený Convex client, použijeme fallback na demo
+      // TODO: const analysisId = await analyze({ fileIds: selectedFileIds });
+      // TODO: const result = await getMyAnalysis({ analysisId });
+
+      // Fallback: demo analýza (do pripojenia Convex client)
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       setAnalysis(DEMO_ANALYSIS);
+
+      // Track contradiction_detected
+      const contradictionCount = DEMO_ANALYSIS.timeline.filter((e) =>
+        e.tags.includes("rozpor")
+      ).length;
+      if (contradictionCount > 0) {
+        trackContradictionDetected({
+          count: contradictionCount,
+          hasAlibiConflict: true,
+          caseId: "upload-fallback",
+          isDemo: false,
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Neznáma chyba";
+      setError(message);
+      trackErrorOccurred({
+        errorType: "analysis_failed",
+        errorMessage: message,
+        context: "sherlock_analyze",
+      });
+    } finally {
       setIsAnalyzing(false);
-    }, 1500);
+    }
   };
 
   const handleReset = () => {

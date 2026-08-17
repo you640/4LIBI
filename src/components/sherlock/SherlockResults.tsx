@@ -10,6 +10,7 @@ import {
   CheckIcon,
 } from "../Icons";
 import { AlibiShareCard } from "../share/AlibiShareCard";
+import { trackContradictionViewed } from "../../lib/analytics";
 
 interface SherlockResultsProps {
   analysis: Analysis;
@@ -223,7 +224,14 @@ function Timeline({
 
             {/* Karta eventu */}
             <button
-              onClick={() => setExpanded(isExpanded ? null : event.id)}
+              onClick={() => {
+                  const newExpanded = isExpanded ? null : event.id;
+                  setExpanded(newExpanded);
+                  // S3.1 — track contradiction_viewed pri rozbaleni rozporu
+                  if (newExpanded && event.tags.includes("rozpor")) {
+                    trackContradictionViewed({ contradictionId: event.id });
+                  }
+                }}
               className={`card w-full p-3 text-left transition-colors hover:border-white/10 ${
                   isContradiction
                     ? "border-l-danger border-l-2"

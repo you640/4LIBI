@@ -14,6 +14,7 @@
     "@sentry/react": "^10.70.0",
     "convex": "^1.44.0",
     "pdfjs-dist": "^6.2.108",
+    "posthog-js": "^1.417.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2"
