@@ -1,5 +1,7 @@
 # 🔍 ForenzDetectiv
 
+https://app.base44.com/apps/6a81f5e7f4adbf6a9523b9d8/editor/workspace/api
+
 > **V spise, ktorý ste prečítali stokrát, nájdete rozpor za sekundu — a uvidíte presné miesto, kde sa lúšti alibi.**
 
 AI forenzný analyzátor, ktorý z PDF dokumentov extrahuje osoby, dôkazy, vzťahy a chronologickú časovú os — a nájde rozpory vo výpovediach s citátom zo zdroja, nie s dohadom.

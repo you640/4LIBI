@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#F7F9FC" />
+  <title>Alibi — Flutter M3 Concept</title>
+  <style>
+    :root {
+      --md-sys-color-primary: #1565C0;
+      --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #D3E3FD;
+      --md-sys-color-on-primary-container: #041E49;
+
+      --md-sys-color-surface: #F7F9FC;
+      --md-sys-color-on-surface: #1A1C1E;
+      --md-sys-color-surface-container-lowest: #FFFFFF;
+      --md-sys-color-surface-container-low: #F1F3F5;
+      --md-sys-color-surface-container: #E8EAED;
+      --md-sys-color-surface-container-high: #E0E3E7;
+      --md-sys-color-surface-container-highest: #D5D8DC;
+
+      --md-sys-color-outline: #73777F;
+      --md-sys-color-outline-variant: #C4C7CC;
+
+      --md-sys-color-error: #C5221F;
+      --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FCE8E6;
+      --md-sys-color-on-error-container: #410E0B;
+
+      --md-sys-color-warning-container: #FFF0C2;
+      --md-sys-color-on-warning-container: #5C4200;
+
+      --md-sys-color-success: #1E8E3E;
+      --md-sys-color-success-container: #CEEAD6;
+      --md-sys-color-on-success-container: #0D652D;
+
+      --md-sys-color-inverse-surface: #2F3033;
+      --md-sys-color-on-inverse-surface: #F1F0F4;
+      --md-sys-color-scrim: rgba(0, 0, 0, 0.32);
+      --md-sys-color-island: #000000;
+      --md-sys-color-stage: #121316;
+
+      --md-sys-shape-corner-small: 8px;
+      --md-sys-shape-corner-medium: 12px;
+      --md-sys-shape-corner-large: 16px;
+      --md-sys-shape-corner-extra-large: 28px;
+      --md-sys-shape-corner-full: 9999px;
+
+      --md-sys-elevation-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.30);
+      --md-sys-elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.30);
+
+      --md-sys-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+      --md-sys-typescale-title-large: 600 22px/28px var(--md-sys-font-family);
+      --md-sys-typescale-title-medium: 600 16px/24px var(--md-sys-font-family);
+      --md-sys-typescale-body-large: 400 16px/24px var(--md-sys-font-family);
+      --md-sys-typescale-body-medium: 400 14px/20px var(--md-sys-font-family);
+      --md-sys-typescale-label-large: 500 14px/20px var(--md-sys-font-family);
+      --md-sys-typescale-label-small: 500 11px/16px var(--md-sys-font-family);
+
+      --motion-standard: cubic-bezier(0.2, 0, 0, 1);
+      --motion-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: var(--md-sys-font-family);
+      background: var(--md-sys-color-stage);
+      color: var(--md-sys-color-on-surface);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .phone {
+      height: 100dvh;
+      max-height: 100dvh;
+      width: 100%;
+      max-width: 430px;
+      margin: 0 auto;
+      background: var(--md-sys-color-surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 80px rgba(0, 0, 0, 0.45);
+    }
+
+    .status-bar {
+      height: 54px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 22px 0;
+      position: relative;
+      z-index: 5;
+    }
+    .status-time {
+      font: var(--md-sys-typescale-label-large);
+      font-weight: 600;
+      width: 54px;
+    }
+    .dynamic-island {
+      position: absolute;
+      left: 50%;
+      top: 11px;
+      transform: translateX(-50%);
+      width: 125px;
+      height: 35px;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-island);
+    }
+    .status-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      width: 54px;
+      justify-content: flex-end;
+    }
+    .status-icons svg { width: 16px; height: 16px; }
+
+    .case-header {
+      flex-shrink: 0;
+      padding: 4px 16px 14px;
+      background: linear-gradient(180deg, var(--md-sys-color-surface-container-low) 0%, var(--md-sys-color-surface) 100%);
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .case-label {
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-outline);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0 0 4px;
+    }
+    .case-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .case-name {
+      margin: 0;
+      font: var(--md-sys-typescale-title-medium);
+    }
+    .case-updated {
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-outline);
+      margin: 4px 0 0;
+    }
+    .risk-pill {
+      flex-shrink: 0;
+      text-align: center;
+      padding: 8px 14px;
+      border-radius: var(--md-sys-shape-corner-medium);
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      box-shadow: inset 0 0 0 1px rgba(197, 34, 31, 0.12);
+    }
+    .risk-pill .score {
+      display: block;
+      font: 700 18px/1 var(--md-sys-font-family);
+    }
+    .risk-pill .label {
+      font: var(--md-sys-typescale-label-small);
+      opacity: 0.9;
+    }
+
+    .case-stats {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .case-stat {
+      flex: 1;
+      min-width: 72px;
+      padding: 8px 10px;
+      border-radius: var(--md-sys-shape-corner-small);
+      background: var(--md-sys-color-surface-container-lowest);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      text-align: center;
+    }
+    .case-stat .val {
+      display: block;
+      font: 700 16px/1.2 var(--md-sys-font-family);
+      color: var(--md-sys-color-on-surface);
+    }
+    .case-stat .lbl {
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-outline);
+    }
+
+    .app-bar {
+      height: 52px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 16px;
+      background: var(--md-sys-color-surface);
+      border-bottom: 1px solid transparent;
+      transition: border-color 150ms ease;
+    }
+    .app-bar.scrolled {
+      border-bottom-color: var(--md-sys-color-outline-variant);
+    }
+    .app-bar h1 {
+      margin: 0;
+      font: var(--md-sys-typescale-title-large);
+    }
+    .app-bar-actions { display: flex; gap: 4px; }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
+      border-radius: var(--md-sys-shape-corner-full);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      color: var(--md-sys-color-on-surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .icon-btn:active { transform: scale(0.94); }
+
+    .search-bar {
+      display: none;
+      padding: 0 16px 10px;
+      background: var(--md-sys-color-surface);
+    }
+    .search-bar.open { display: block; }
+    .search-input {
+      width: 100%;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: var(--md-sys-shape-corner-full);
+      padding: 10px 14px 10px 38px;
+      font: var(--md-sys-typescale-body-medium);
+      background: var(--md-sys-color-surface-container-lowest);
+      color: var(--md-sys-color-on-surface);
+      outline: none;
+    }
+    .search-input:focus {
+      border-color: var(--md-sys-color-primary);
+      box-shadow: 0 0 0 3px var(--md-sys-color-primary-container);
+    }
+    .search-wrap {
+      position: relative;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      color: var(--md-sys-color-outline);
+      pointer-events: none;
+    }
+
+    .body {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px 16px 12px;
+      overscroll-behavior: contain;
+    }
+
+    .tab-panel {
+      display: none;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 180ms var(--motion-standard), transform 180ms var(--motion-standard);
+    }
+    .tab-panel.active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .nav-bar {
+      height: 80px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding: 12px 4px calc(16px + env(safe-area-inset-bottom, 0px));
+      background: var(--md-sys-color-surface-container);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .nav-item {
+      flex: 1;
+      border: none;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+      color: var(--md-sys-color-on-surface);
+    }
+    .nav-item .pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
+      height: 32px;
+      border-radius: var(--md-sys-shape-corner-full);
+      transition: background 200ms var(--motion-standard), transform 120ms ease;
+    }
+    .nav-item:active .pill { transform: scale(0.92); }
+    .nav-item.active .pill {
+      background: var(--md-sys-color-primary-container);
+      padding: 4px 20px;
+      color: var(--md-sys-color-on-primary-container);
+    }
+    .nav-item.active .nav-label { font-weight: 700; }
+    .nav-label { font: var(--md-sys-typescale-label-small); }
+    .nav-badge {
+      position: absolute;
+      top: -2px;
+      right: calc(50% - 28px);
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-error);
+      color: var(--md-sys-color-on-error);
+      font: 600 10px/16px var(--md-sys-font-family);
+      text-align: center;
+      transition: transform 200ms var(--motion-emphasized);
+    }
+    .nav-badge.bump { animation: badgeBump 320ms var(--motion-emphasized); }
+    @keyframes badgeBump {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.25); }
+    }
+    .nav-item svg { width: 24px; height: 24px; }
+
+    .card-filled {
+      background: var(--md-sys-color-surface-container-low);
+      border-radius: var(--md-sys-shape-corner-large);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card-outlined {
+      background: var(--md-sys-color-surface-container-lowest);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: var(--md-sys-shape-corner-large);
+      padding: 16px;
+      margin-bottom: 12px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 220ms ease, opacity 220ms ease, transform 120ms ease, box-shadow 220ms ease;
+    }
+    .card-outlined:active { transform: scale(0.995); }
+    .card-outlined.highlight {
+      box-shadow: 0 0 0 3px var(--md-sys-color-primary-container);
+      animation: cardPulse 1.2s ease-out;
+    }
+    @keyframes cardPulse {
+      0% { box-shadow: 0 0 0 0 var(--md-sys-color-primary-container); }
+      40% { box-shadow: 0 0 0 6px var(--md-sys-color-primary-container); }
+      100% { box-shadow: 0 0 0 3px var(--md-sys-color-primary-container); }
+    }
+    .card-outlined.confirmed {
+      border-color: var(--md-sys-color-success);
+      border-width: 2px;
+    }
+    .card-outlined.dismissed {
+      opacity: 0.55;
+      border-style: dashed;
+    }
+    .card-outlined.hidden { display: none; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: var(--md-sys-shape-corner-full);
+      font: var(--md-sys-typescale-label-small);
+      margin-bottom: 8px;
+    }
+    .status-badge.confirmed {
+      background: var(--md-sys-color-success-container);
+      color: var(--md-sys-color-on-success-container);
+    }
+    .status-badge.dismissed {
+      background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-outline);
+    }
+
+    .badge-error {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      font: var(--md-sys-typescale-label-large);
+      font-weight: 600;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: var(--md-sys-shape-corner-small);
+      font: var(--md-sys-typescale-label-small);
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+    }
+    .chip.medium {
+      background: var(--md-sys-color-warning-container);
+      color: var(--md-sys-color-on-warning-container);
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: 12px;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      background: var(--md-sys-color-surface-container-lowest);
+      border-radius: var(--md-sys-shape-corner-full);
+      padding: 8px 14px;
+      font: var(--md-sys-typescale-label-large);
+      cursor: pointer;
+      color: var(--md-sys-color-on-surface);
+      position: relative;
+      overflow: hidden;
+    }
+    .filter-chip.active {
+      background: var(--md-sys-color-primary-container);
+      border-color: transparent;
+      color: var(--md-sys-color-on-primary-container);
+      font-weight: 600;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .card-header h3 {
+      margin: 0;
+      font: var(--md-sys-typescale-title-medium);
+    }
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .confidence {
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-outline);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .confidence-bar {
+      flex: 1;
+      max-width: 80px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--md-sys-color-surface-container-high);
+      overflow: hidden;
+    }
+    .confidence-bar span {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+      background: var(--md-sys-color-primary);
+    }
+
+    .claim-block {
+      margin-bottom: 10px;
+      font: var(--md-sys-typescale-body-medium);
+      padding: 10px 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      background: var(--md-sys-color-surface-container-low);
+    }
+    .claim-block.alibi {
+      border-left: 3px solid var(--md-sys-color-primary);
+    }
+    .claim-block.fact {
+      border-left: 3px solid var(--md-sys-color-error);
+      background: var(--md-sys-color-error-container);
+      background: color-mix(in srgb, var(--md-sys-color-error-container) 40%, var(--md-sys-color-surface-container-low));
+    }
+    .claim-block .label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-outline);
+      margin-bottom: 4px;
+    }
+    .claim-block .label svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .source-ref {
+      display: block;
+      margin-top: 4px;
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-primary);
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      align-items: center;
+    }
+
+    .btn-filled, .btn-text, .btn-outlined, .filter-chip, .list-item, .tl-item-btn {
+      touch-action: manipulation;
+    }
+    .btn-filled:active { transform: scale(0.97); }
+    .btn-filled:active { transform: scale(0.97); }
+    .btn-filled {
+      border: none;
+      border-radius: var(--md-sys-shape-corner-full);
+      padding: 10px 20px;
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      font: var(--md-sys-typescale-label-large);
+      font-weight: 600;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform 120ms ease, background 150ms ease;
+    }
+    .btn-text {
+      border: none;
+      background: transparent;
+      padding: 8px 12px;
+      border-radius: var(--md-sys-shape-corner-full);
+      font: var(--md-sys-typescale-label-large);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+      color: var(--md-sys-color-on-surface);
+    }
+    .btn-text.success { color: var(--md-sys-color-success); }
+    .btn-text.muted { color: var(--md-sys-color-outline); }
+    .btn-outlined {
+      border: 1px solid var(--md-sys-color-outline);
+      background: transparent;
+      border-radius: var(--md-sys-shape-corner-full);
+      padding: 10px 20px;
+      font: var(--md-sys-typescale-label-large);
+      font-weight: 600;
+      color: var(--md-sys-color-primary);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .section-title {
+      font: var(--md-sys-typescale-title-medium);
+      margin: 0 0 8px;
+    }
+    .muted {
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-outline);
+      margin: 0 0 16px;
+    }
+
+    .list-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      background: var(--md-sys-color-surface-container-lowest);
+      border-radius: var(--md-sys-shape-corner-large);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 150ms ease, background 150ms ease, transform 120ms ease;
+    }
+    .list-item:active { transform: scale(0.985); background: var(--md-sys-color-surface-container-low); }
+    .list-item .chevron {
+      color: var(--md-sys-color-outline-variant);
+      flex-shrink: 0;
+    }
+    .list-item h3 {
+      margin: 0 0 4px;
+      font: var(--md-sys-typescale-title-medium);
+    }
+    .list-item p {
+      margin: 0;
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-outline);
+    }
+    .list-item .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--md-sys-color-success);
+      flex-shrink: 0;
+    }
+    .status-dot.pending { background: var(--md-sys-color-primary); }
+
+    .timeline { position: relative; padding-left: 28px; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: var(--md-sys-color-outline-variant);
+    }
+    .tl-item { position: relative; margin-bottom: 16px; }
+    .tl-item-btn {
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--md-sys-shape-corner-medium);
+    }
+    .tl-dot {
+      position: absolute;
+      left: -28px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--md-sys-color-primary);
+      border: 3px solid var(--md-sys-color-surface);
+      box-shadow: 0 0 0 2px var(--md-sys-color-primary-container);
+    }
+    .tl-dot.conflict {
+      background: var(--md-sys-color-error);
+      box-shadow: 0 0 0 2px var(--md-sys-color-error-container);
+    }
+    .tl-time {
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-outline);
+      margin-bottom: 4px;
+    }
+    .tl-title {
+      font: var(--md-sys-typescale-title-medium);
+      margin: 0 0 4px;
+    }
+    .tl-desc {
+      font: var(--md-sys-typescale-body-medium);
+      margin: 0;
+    }
+    .geo-box {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: var(--md-sys-shape-corner-medium);
+      background: var(--md-sys-color-surface-container);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      font: var(--md-sys-typescale-body-medium);
+    }
+    .geo-box strong { display: block; margin-bottom: 4px; }
+    .geo-box .speed {
+      display: block;
+      margin-top: 6px;
+      font: 700 20px/1 var(--md-sys-font-family);
+      color: var(--md-sys-color-error);
+    }
+
+    .graph-wrap {
+      position: relative;
+      height: 280px;
+      border-radius: var(--md-sys-shape-corner-large);
+      background: var(--md-sys-color-surface-container-low);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .graph-wrap svg.links {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .graph-wrap svg.links line {
+      stroke: var(--md-sys-color-outline-variant);
+      stroke-width: 2;
+      transition: stroke 200ms ease;
+    }
+    .graph-wrap.pulse .node.center .node-avatar {
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: var(--md-sys-elevation-1); }
+      50% { box-shadow: 0 0 0 8px rgba(21, 101, 192, 0.18); }
+    }
+    .node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      padding: 0;
+      overflow: hidden;
+      border-radius: var(--md-sys-shape-corner-medium);
+    }
+    .node-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font: 600 14px/1 var(--md-sys-font-family);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      box-shadow: var(--md-sys-elevation-1);
+    }
+    .node.center .node-avatar {
+      width: 72px;
+      height: 72px;
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+    .node-name {
+      font: var(--md-sys-typescale-label-small);
+      max-width: 100px;
+      text-align: center;
+    }
+
+    .person-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      cursor: pointer;
+      border-radius: var(--md-sys-shape-corner-small);
+      transition: background 150ms ease;
+    }
+    .person-row:active { background: var(--md-sys-color-surface-container); }
+    .person-row:last-child { border-bottom: none; }
+    .person-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font: 600 13px/1 var(--md-sys-font-family);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+    .person-info h3 {
+      margin: 0 0 2px;
+      font: var(--md-sys-typescale-title-medium);
+      font-size: 15px;
+    }
+    .person-info p {
+      margin: 0;
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-outline);
+    }
+
+    .scrim {
+      position: absolute;
+      inset: 0;
+      background: var(--md-sys-color-scrim);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+      z-index: 40;
+    }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+
+    .sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      background: var(--md-sys-color-surface-container-lowest);
+      border-radius: var(--md-sys-shape-corner-extra-large) var(--md-sys-shape-corner-extra-large) 0 0;
+      padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(110%);
+      transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
+      box-shadow: var(--md-sys-elevation-2);
+      max-height: 78%;
+      overflow-y: auto;
+      touch-action: none;
+    }
+    .sheet.open { transform: translateY(0); }
+    .sheet.dragging { transition: none; }
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--md-sys-color-outline-variant);
+      margin: 0 auto 16px;
+      cursor: grab;
+      touch-action: none;
+    }
+    .sheet-handle:active { cursor: grabbing; }
+    .sheet-accent {
+      height: 4px;
+      width: 48px;
+      border-radius: 2px;
+      background: var(--md-sys-color-error);
+      margin: 0 0 12px;
+    }
+    .sheet h2 {
+      margin: 0 0 8px;
+      font: var(--md-sys-typescale-title-large);
+    }
+    .sheet p {
+      margin: 0 0 12px;
+      font: var(--md-sys-typescale-body-medium);
+    }
+    .sheet-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .sheet-actions .btn-filled,
+    .sheet-actions .btn-outlined { width: 100%; text-align: center; }
+
+    .map-box {
+      margin: 12px 0;
+      padding: 12px;
+      border-radius: var(--md-sys-shape-corner-medium);
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .map-box svg { width: 100%; height: auto; display: block; }
+    .map-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font: var(--md-sys-typescale-label-large);
+    }
+    .map-stats .big {
+      font: 700 22px/1 var(--md-sys-font-family);
+      color: var(--md-sys-color-error);
+    }
+
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      transform: scale(0);
+      animation: ripple 450ms ease-out;
+      background: rgba(21, 101, 192, 0.22);
+      pointer-events: none;
+    }
+    @keyframes ripple {
+      to { transform: scale(2.6); opacity: 0; }
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 100px;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--md-sys-color-inverse-surface);
+      color: var(--md-sys-color-on-inverse-surface);
+      padding: 10px 16px;
+      border-radius: var(--md-sys-shape-corner-small);
+      font: var(--md-sys-typescale-label-large);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+      z-index: 60;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--md-sys-color-outline);
+      font: var(--md-sys-typescale-body-medium);
+    }
+    .empty-state svg {
+      width: 40px;
+      height: 40px;
+      margin-bottom: 12px;
+      opacity: 0.45;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="phone" id="app">
+    <div class="status-bar">
+      <span class="status-time">9:41</span>
+      <div class="dynamic-island" aria-hidden="true"></div>
+      <div class="status-icons" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h2v2H2v-2zm4-3h2v5H6v-5zm4-3h2v8h-2V11zm4-3h2v11h-2V8zm4-4h2v15h-2V4z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+      </div>
+    </div>
+
+    <div class="case-header">
+      <p class="case-label">Prípad</p>
+      <div class="case-row">
+        <div>
+          <h2 class="case-name">TATRA · BA–KE alibi</h2>
+          <p class="case-updated">Aktualizované dnes 09:41</p>
+        </div>
+        <div class="risk-pill">
+          <span class="score">78</span>
+          <span class="label">VYSOKÉ</span>
+        </div>
+      </div>
+      <div class="case-stats">
+        <div class="case-stat"><span class="val" id="statOpen">3</span><span class="lbl">Rozpory</span></div>
+        <div class="case-stat"><span class="val">4</span><span class="lbl">Udalosti</span></div>
+        <div class="case-stat"><span class="val">3</span><span class="lbl">Osoby</span></div>
+        <div class="case-stat"><span class="val">2</span><span class="lbl">Dôkazy</span></div>
+      </div>
+    </div>
+
+    <header class="app-bar" id="appBar">
+      <h1 id="appTitle">Rozpory</h1>
+      <div class="app-bar-actions">
+        <button type="button" class="icon-btn ripple-host" id="searchBtn" aria-label="Hľadať">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="search-bar" id="searchBar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+        <input type="search" class="search-input" id="searchInput" placeholder="Hľadať osobu, miesto, dokument…" autocomplete="off" />
+      </div>
+    </div>
+
+    <main class="body" id="body">
+      <section class="tab-panel" data-tab="spisy" id="panel-spisy">
+        <p class="muted">Forenzné spisy uložené na serveri</p>
+        <button type="button" class="list-item ripple-host" data-open-case="tatra">
+          <div class="row">
+            <div>
+              <h3>TATRA · BA–KE alibi</h3>
+              <p>3 rozpory · 16. 5. 2023</p>
+            </div>
+            <span class="status-dot" title="Pripravený"></span>
+            <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </button>
+        <button type="button" class="list-item ripple-host" data-open-case="zoom">
+          <div class="row">
+            <div>
+              <h3>Zoom log · Peter K.</h3>
+              <p>1 rozpor · 12. 3. 2024</p>
+            </div>
+            <span class="status-dot" title="Pripravený"></span>
+            <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </button>
+        <button type="button" class="list-item ripple-host">
+          <div class="row">
+            <div>
+              <h3>Telematika flotily</h3>
+              <p>Analýza prebieha…</p>
+            </div>
+            <span class="status-dot pending" title="Prebieha"></span>
+            <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </button>
+      </section>
+
+      <section class="tab-panel" data-tab="timeline" id="panel-timeline">
+        <p class="muted">Geopriestorová časová os — klik otvorí rozpor</p>
+        <div class="timeline">
+          <div class="tl-item">
+            <button type="button" class="tl-item-btn ripple-host">
+              <span class="tl-dot"></span>
+              <div class="tl-time">22:15 · Bratislava</div>
+              <h3 class="tl-title">Odchod z kancelárie</h3>
+              <p class="tl-desc">Kamerový záznam — vchod Tatra Consulting.</p>
+            </button>
+          </div>
+          <div class="tl-item">
+            <button type="button" class="tl-item-btn ripple-host" data-goto="c1">
+              <span class="tl-dot conflict"></span>
+              <div class="tl-time">22:30 · Košice (tvrdené)</div>
+              <h3 class="tl-title">Alibi — čerpacia stanica</h3>
+              <p class="tl-desc">„O 22:30 som bol v Košiciach na čerpacej stanici.“</p>
+            </button>
+          </div>
+          <div class="tl-item">
+            <button type="button" class="tl-item-btn ripple-host" data-goto="c1">
+              <span class="tl-dot conflict"></span>
+              <div class="tl-time">22:45 · Bratislava</div>
+              <h3 class="tl-title">Platba kartou</h3>
+              <p class="tl-desc">POS terminál — nákup 12,40 €, Bratislava-Staré Mesto.</p>
+              <div class="geo-box">
+                <strong>Trasa BA → KE (nemožná)</strong>
+                Vzdialenosť ≈ 400 km · Časový slot 15 min
+                <span class="speed">≈ 1 600 km/h</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel active" data-tab="rozpory" id="panel-rozpory">
+        <div class="card-filled">
+          <span class="badge-error" id="criticalBadge">3 Kritické Rozpory</span>
+          <p class="muted" style="margin: 12px 0 0">Automaticky detegované konflikty alibi vs. forenzné fakty.</p>
+        </div>
+
+        <div class="filter-row" id="filterRow">
+          <button type="button" class="filter-chip active ripple-host" data-filter="all">Všetky</button>
+          <button type="button" class="filter-chip ripple-host" data-filter="critical">Kritické</button>
+          <button type="button" class="filter-chip ripple-host" data-filter="confirmed">Potvrdené</button>
+          <button type="button" class="filter-chip ripple-host" data-filter="dismissed">Zamietnuté</button>
+        </div>
+
+        <div id="contradictionList">
+          <article class="card-outlined ripple-host" data-id="c1" data-severity="high" data-status="open" data-search="ján novák košice bratislava">
+            <div class="card-header">
+              <h3>Ján Novák</h3>
+              <span class="chip">Vysoké riziko</span>
+            </div>
+            <div class="meta-row">
+              <span class="confidence">0,92<div class="confidence-bar"><span style="width:92%"></span></div></span>
+            </div>
+            <div class="claim-block alibi">
+              <span class="label">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                Tvrdené Alibi
+              </span>
+              „O 22:30 som bol v Košiciach na čerpacej stanici.“
+              <span class="source-ref">Výpoveď s. 3 · Dokument A</span>
+            </div>
+            <div class="claim-block fact">
+              <span class="label">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                Forenzný Fakt
+              </span>
+              „O 22:45 platil kartou v Bratislave (400 km / 15 min).“
+              <span class="source-ref">POS log · Dokument B</span>
+            </div>
+            <div class="card-actions">
+              <button type="button" class="btn-filled ripple-host" data-open-alibi="c1">Alibi Impossible Karta</button>
+              <button type="button" class="btn-text success ripple-host" data-confirm="c1">Potvrdiť</button>
+              <button type="button" class="btn-text muted ripple-host" data-dismiss="c1">Zamietnuť</button>
+            </div>
+          </article>
+
+          <article class="card-outlined ripple-host" data-id="c2" data-severity="medium" data-status="open" data-search="peter kováč zoom schôdza">
+            <div class="card-header">
+              <h3>Peter Kováč</h3>
+              <span class="chip medium">Stredné riziko</span>
+            </div>
+            <div class="meta-row">
+              <span class="confidence">0,74<div class="confidence-bar"><span style="width:74%"></span></div></span>
+            </div>
+            <div class="claim-block alibi">
+              <span class="label">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                Tvrdené Alibi
+              </span>
+              „Celý večer som bol na online schôdzi.“
+              <span class="source-ref">Výpoveď s. 1</span>
+            </div>
+            <div class="claim-block fact">
+              <span class="label">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                Forenzný Fakt
+              </span>
+              Log Zoomu končí o 21:50; o 22:05 vstupná karta do budovy X.
+              <span class="source-ref">Access log · Budova X</span>
+            </div>
+            <div class="card-actions">
+              <button type="button" class="btn-filled ripple-host" data-open-alibi="c2">Alibi Impossible Karta</button>
+              <button type="button" class="btn-text success ripple-host" data-confirm="c2">Potvrdiť</button>
+              <button type="button" class="btn-text muted ripple-host" data-dismiss="c2">Zamietnuť</button>
+            </div>
+          </article>
+
+          <article class="card-outlined ripple-host" data-id="c3" data-severity="high" data-status="open" data-search="tatra consulting gps garáž">
+            <div class="card-header">
+              <h3>Tatra Consulting s.r.o.</h3>
+              <span class="chip">Vysoké riziko</span>
+            </div>
+            <div class="meta-row">
+              <span class="confidence">0,88<div class="confidence-bar"><span style="width:88%"></span></div></span>
+            </div>
+            <div class="claim-block alibi">
+              <span class="label">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                Tvrdené Alibi
+              </span>
+              „Autá firmy neopustili garáž.“
+              <span class="source-ref">Interný zápis · s. 2</span>
+            </div>
+            <div class="claim-block fact">
+              <span class="label">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                Forenzný Fakt
+              </span>
+              GPS telematiky: vozidlo BA-123AB na D1 o 22:20.
+              <span class="source-ref">Telematika export</span>
+            </div>
+            <div class="card-actions">
+              <button type="button" class="btn-filled ripple-host" data-open-alibi="c3">Alibi Impossible Karta</button>
+              <button type="button" class="btn-text success ripple-host" data-confirm="c3">Potvrdiť</button>
+              <button type="button" class="btn-text muted ripple-host" data-dismiss="c3">Zamietnuť</button>
+            </div>
+          </article>
+        </div>
+        <div class="empty-state hidden" id="emptyFilter">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          V tomto filtri nie sú žiadne rozpory.
+        </div>
+      </section>
+
+      <section class="tab-panel" data-tab="graf" id="panel-graf">
+        <p class="muted">Satelitné väzby — klikni na uzol</p>
+        <div class="graph-wrap" id="graphWrap">
+          <svg class="links" viewBox="0 0 400 280" aria-hidden="true">
+            <line x1="200" y1="140" x2="90" y2="70"/>
+            <line x1="200" y1="140" x2="320" y2="80"/>
+            <line x1="200" y1="140" x2="280" y2="220"/>
+          </svg>
+          <button type="button" class="node center ripple-host" style="left:50%;top:50%" data-person="jan">
+            <span class="node-avatar">JN</span>
+            <span class="node-name">Ján Novák</span>
+          </button>
+          <button type="button" class="node ripple-host" style="left:22%;top:25%" data-person="peter">
+            <span class="node-avatar">PK</span>
+            <span class="node-name">Peter Kováč</span>
+          </button>
+          <button type="button" class="node ripple-host" style="left:80%;top:28%" data-person="tatra">
+            <span class="node-avatar">TC</span>
+            <span class="node-name">Tatra Consulting</span>
+          </button>
+          <button type="button" class="node ripple-host" style="left:70%;top:78%" data-person="pos">
+            <span class="node-avatar">BA</span>
+            <span class="node-name">POS Bratislava</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-tab="osoby" id="panel-osoby">
+        <div class="card-filled">
+          <div class="person-row ripple-host" data-person="jan">
+            <span class="person-avatar">JN</span>
+            <div class="person-info">
+              <h3>Ján Novák</h3>
+              <p>Obvinený · riziko 85/100 · 3 väzby</p>
+            </div>
+          </div>
+          <div class="person-row ripple-host" data-person="peter">
+            <span class="person-avatar">PK</span>
+            <div class="person-info">
+              <h3>Peter Kováč</h3>
+              <p>Svedok · riziko 54/100 · 2 väzby</p>
+            </div>
+          </div>
+          <div class="person-row ripple-host" data-person="tatra">
+            <span class="person-avatar">TC</span>
+            <div class="person-info">
+              <h3>Tatra Consulting s.r.o.</h3>
+              <p>Subjekt · riziko 72/100 · 5 väzieb</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="nav-bar" aria-label="Hlavná navigácia">
+      <button type="button" class="nav-item ripple-host" data-tab="spisy">
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg></span>
+        <span class="nav-label">Spisy</span>
+      </button>
+      <button type="button" class="nav-item ripple-host" data-tab="timeline">
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 11H7v-2h4V7h2v6z"/></svg></span>
+        <span class="nav-label">Timeline</span>
+      </button>
+      <button type="button" class="nav-item active ripple-host" data-tab="rozpory">
+        <span class="nav-badge" id="navBadge">3</span>
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></span>
+        <span class="nav-label">Rozpory</span>
+      </button>
+      <button type="button" class="nav-item ripple-host" data-tab="graf">
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a3 3 0 0 1 1 5.83V11h3.17A3 3 0 1 1 17 13h-3.17v3.17A3 3 0 1 1 12 15.17V13H8.83A3 3 0 1 1 7 11h3.17V7.83A3 3 0 0 1 12 2z"/></svg></span>
+        <span class="nav-label">Graf</span>
+      </button>
+      <button type="button" class="nav-item ripple-host" data-tab="osoby">
+        <span class="pill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/></svg></span>
+        <span class="nav-label">Osoby</span>
+      </button>
+    </nav>
+
+    <div class="scrim" id="scrim"></div>
+
+    <div class="sheet" id="sheet-alibi" role="dialog" aria-modal="true" aria-labelledby="alibiTitle">
+      <div class="sheet-handle" data-drag-handle></div>
+      <div class="sheet-accent"></div>
+      <h2 id="alibiTitle">Alibi Impossible</h2>
+      <p id="alibiBody">Časovo-priestorový konflikt: tvrdené miesto v Košiciach o 22:30 nie je zlučiteľné s platbou kartou v Bratislave o 22:45.</p>
+      <div class="map-box">
+        <svg viewBox="0 0 320 120" aria-hidden="true">
+          <rect width="320" height="120" fill="var(--md-sys-color-surface-container)" rx="8"/>
+          <circle cx="60" cy="60" r="8" fill="var(--md-sys-color-primary)"/>
+          <text x="60" y="82" text-anchor="middle" font-size="10" fill="var(--md-sys-color-on-surface)">BA</text>
+          <circle cx="260" cy="60" r="8" fill="var(--md-sys-color-error)"/>
+          <text x="260" y="82" text-anchor="middle" font-size="10" fill="var(--md-sys-color-on-surface)">KE</text>
+          <line x1="68" y1="60" x2="252" y2="60" stroke="var(--md-sys-color-error)" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="160" y="52" text-anchor="middle" font-size="11" fill="var(--md-sys-color-error)">400 km / 15 min</text>
+        </svg>
+        <div class="map-stats">
+          <span>Vyžadovaná rýchlosť</span>
+          <span class="big">1 600 km/h</span>
+        </div>
+      </div>
+      <p><strong>Záver:</strong> Alibi je fyzicky nemožné pri bežnej doprave.</p>
+      <div class="sheet-actions">
+        <button type="button" class="btn-filled ripple-host" id="shareAlibi">Zdieľať kartu</button>
+        <button type="button" class="btn-outlined ripple-host" id="copyAlibi">Kopírovať text</button>
+        <button type="button" class="btn-text muted ripple-host" data-close-sheet>Zavrieť</button>
+      </div>
+    </div>
+
+    <div class="sheet" id="sheet-person" role="dialog" aria-modal="true" aria-labelledby="personTitle">
+      <div class="sheet-handle" data-drag-handle></div>
+      <h2 id="personTitle">Ján Novák</h2>
+      <p id="personMeta">Podnikateľ · riziko 85/100 · 3 väzby</p>
+      <div class="sheet-actions">
+        <button type="button" class="btn-filled ripple-host" id="personDetailBtn">Zobraziť detail</button>
+        <button type="button" class="btn-text muted ripple-host" data-close-sheet>Zavrieť</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+
+  <script>
+    const titles = {
+      spisy: 'Spisy',
+      timeline: 'Časová os',
+      rozpory: 'Rozpory',
+      graf: 'Graf',
+      osoby: 'Osoby',
+    };
+
+    const personData = {
+      jan: { title: 'Ján Novák', meta: 'Obvinený · riziko 85/100 · 3 väzby' },
+      peter: { title: 'Peter Kováč', meta: 'Svedok · riziko 54/100 · 2 väzby' },
+      tatra: { title: 'Tatra Consulting s.r.o.', meta: 'Subjekt · riziko 72/100 · 5 väzieb' },
+      pos: { title: 'POS Bratislava', meta: 'Dôkaz · platba kartou 22:45' },
+    };
+
+    const alibiTexts = {
+      c1: 'Alibi Impossible — Ján Novák\nTvrdené: 22:30 Košice\nFakt: 22:45 Bratislava\n400 km / 15 min → 1 600 km/h',
+      c2: 'Alibi Impossible — Peter Kováč\nTvrdené: online schôdza celý večer\nFakt: vstupná karta 22:05',
+      c3: 'Alibi Impossible — Tatra Consulting\nTvrdené: autá v garáži\nFakt: GPS na D1 o 22:20',
+    };
+
+    let currentFilter = 'all';
+    let currentAlibiText = alibiTexts.c1;
+    let searchQuery = '';
+    let activeSheet = null;
+    let dragStartY = 0;
+    let dragSheet = null;
+    let prevCriticalCount = 3;
+
+    function haptic() {
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function attachRipple(root) {
+      root.addEventListener('pointerdown', (e) => {
+        const host = e.target.closest('.ripple-host, .btn-filled, .btn-outlined, .btn-text, .icon-btn, .nav-item, .card-outlined, .node, .filter-chip, .list-item, .tl-item-btn, .person-row');
+        if (!host) return;
+        const rect = host.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple';
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = e.clientX - rect.left - size / 2 + 'px';
+        ripple.style.top = e.clientY - rect.top - size / 2 + 'px';
+        if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+        host.appendChild(ripple);
+        ripple.addEventListener('animationend', () => ripple.remove());
+      });
+    }
+
+    function countOpenCritical() {
+      return document.querySelectorAll('[data-id][data-severity="high"][data-status="open"]').length;
+    }
+
+    function updateBadges() {
+      const n = countOpenCritical();
+      const badge = document.getElementById('navBadge');
+      badge.textContent = String(n);
+      document.getElementById('criticalBadge').textContent = n + ' Kritické Rozpory';
+      badge.style.display = n > 0 ? 'block' : 'none';
+      if (n !== prevCriticalCount) {
+        badge.classList.remove('bump');
+        void badge.offsetWidth;
+        badge.classList.add('bump');
+        prevCriticalCount = n;
+      }
+      document.getElementById('statOpen').textContent = String(
+        document.querySelectorAll('[data-id][data-status="open"]').length
+      );
+    }
+
+    function cardMatchesFilter(card) {
+      const status = card.dataset.status;
+      const severity = card.dataset.severity;
+      if (currentFilter === 'critical') return status === 'open' && severity === 'high';
+      if (currentFilter === 'confirmed') return status === 'confirmed';
+      if (currentFilter === 'dismissed') return status === 'dismissed';
+      return true;
+    }
+
+    function cardMatchesSearch(card) {
+      if (!searchQuery) return true;
+      const hay = (card.dataset.search || '') + ' ' + card.textContent;
+      return hay.toLowerCase().includes(searchQuery);
+    }
+
+    function applyFilter() {
+      const cards = document.querySelectorAll('[data-id]');
+      let visible = 0;
+      cards.forEach((card) => {
+        const show = cardMatchesFilter(card) && cardMatchesSearch(card);
+        card.classList.toggle('hidden', !show);
+        if (show) visible++;
+      });
+      document.getElementById('emptyFilter').classList.toggle('hidden', visible > 0);
+    }
+
+    function setCardStatus(id, status) {
+      const card = document.querySelector('[data-id="' + id + '"]');
+      if (!card) return;
+      card.dataset.status = status;
+      card.classList.remove('confirmed', 'dismissed');
+      card.querySelectorAll('.status-badge').forEach((b) => b.remove());
+      const badge = document.createElement('div');
+      badge.className = 'status-badge ' + status;
+      if (status === 'confirmed') {
+        card.classList.add('confirmed');
+        badge.textContent = '✓ Potvrdené';
+        card.querySelector('.card-actions').style.display = 'none';
+      } else if (status === 'dismissed') {
+        card.classList.add('dismissed');
+        badge.textContent = 'Zamietnuté';
+        card.querySelector('.card-actions').style.display = 'none';
+      } else {
+        card.querySelector('.card-actions').style.display = '';
+      }
+      if (status !== 'open') card.querySelector('.card-header').after(badge);
+      card.style.animation = 'none';
+      void card.offsetWidth;
+      card.style.animation = '';
+      updateBadges();
+      applyFilter();
+    }
+
+    function setTab(name) {
+      document.querySelectorAll('.nav-item').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.tab === name);
+      });
+      document.querySelectorAll('.tab-panel').forEach((panel) => {
+        const on = panel.dataset.tab === name;
+        panel.classList.toggle('active', on);
+        if (on) {
+          panel.style.opacity = '0';
+          requestAnimationFrame(() => { panel.style.opacity = '1'; });
+        } else {
+          panel.style.opacity = '';
+        }
+      });
+      document.getElementById('appTitle').textContent = titles[name] || name;
+      const body = document.getElementById('body');
+      body.scrollTop = 0;
+      document.getElementById('appBar').classList.remove('scrolled');
+      if (name === 'graf') {
+        document.getElementById('graphWrap').classList.add('pulse');
+      } else {
+        document.getElementById('graphWrap').classList.remove('pulse');
+      }
+    }
+
+    function openSheet(id) {
+      closeSheets();
+      activeSheet = document.getElementById(id);
+      document.getElementById('scrim').classList.add('open');
+      activeSheet.classList.add('open');
+    }
+
+    function closeSheets() {
+      document.getElementById('scrim').classList.remove('open');
+      document.querySelectorAll('.sheet').forEach((s) => {
+        s.classList.remove('open');
+        s.style.transform = '';
+      });
+      activeSheet = null;
+      dragSheet = null;
+    }
+
+    function scrollToCard(id) {
+      setTab('rozpory');
+      currentFilter = 'all';
+      document.querySelectorAll('.filter-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.filter === 'all');
+      });
+      applyFilter();
+      const card = document.querySelector('[data-id="' + id + '"]');
+      if (card) {
+        setTimeout(() => {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.remove('highlight');
+          void card.offsetWidth;
+          card.classList.add('highlight');
+          setTimeout(() => card.classList.remove('highlight'), 1400);
+        }, 180);
+      }
+    }
+
+    function toggleSearch(force) {
+      const bar = document.getElementById('searchBar');
+      const open = force !== undefined ? force : !bar.classList.contains('open');
+      bar.classList.toggle('open', open);
+      if (open) {
+        setTimeout(() => document.getElementById('searchInput').focus(), 120);
+      } else {
+        document.getElementById('searchInput').value = '';
+        searchQuery = '';
+        applyFilter();
+      }
+    }
+
+    attachRipple(document.getElementById('app'));
+
+    document.querySelectorAll('.nav-item').forEach((btn) => {
+      btn.addEventListener('click', () => setTab(btn.dataset.tab));
+    });
+
+    document.querySelectorAll('.filter-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        currentFilter = chip.dataset.filter;
+        document.querySelectorAll('.filter-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        applyFilter();
+      });
+    });
+
+    document.querySelectorAll('[data-open-alibi]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.openAlibi;
+        currentAlibiText = alibiTexts[id] || alibiTexts.c1;
+        openSheet('sheet-alibi');
+      });
+    });
+
+    document.querySelectorAll('[data-confirm]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        haptic();
+        setCardStatus(btn.dataset.confirm, 'confirmed');
+        showToast('Rozpor potvrdený');
+      });
+    });
+
+    document.querySelectorAll('[data-dismiss]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        haptic();
+        setCardStatus(btn.dataset.dismiss, 'dismissed');
+        showToast('Rozpor zamietnutý');
+      });
+    });
+
+    document.querySelectorAll('[data-goto]').forEach((btn) => {
+      btn.addEventListener('click', () => scrollToCard(btn.dataset.goto));
+    });
+
+    document.querySelectorAll('[data-person]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const key = el.dataset.person;
+        const data = personData[key] || personData.jan;
+        document.getElementById('personTitle').textContent = data.title;
+        document.getElementById('personMeta').textContent = data.meta;
+        openSheet('sheet-person');
+      });
+    });
+
+    document.querySelectorAll('[data-open-case]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setTab('rozpory');
+        showToast('Spis TATRA otvorený');
+      });
+    });
+
+    document.getElementById('personDetailBtn').addEventListener('click', () => {
+      closeSheets();
+      setTab('osoby');
+    });
+
+    document.getElementById('searchBtn').addEventListener('click', () => toggleSearch());
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      if (searchQuery && document.querySelector('.tab-panel.active')?.dataset.tab !== 'rozpory') {
+        setTab('rozpory');
+      }
+      applyFilter();
+    });
+
+    document.getElementById('body').addEventListener('scroll', (e) => {
+      document.getElementById('appBar').classList.toggle('scrolled', e.target.scrollTop > 8);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSheets();
+    });
+
+    document.getElementById('scrim').addEventListener('click', closeSheets);
+    document.querySelectorAll('[data-close-sheet]').forEach((btn) => {
+      btn.addEventListener('click', closeSheets);
+    });
+
+    document.querySelectorAll('[data-drag-handle]').forEach((handle) => {
+      handle.addEventListener('pointerdown', (e) => {
+        dragSheet = handle.closest('.sheet');
+        dragStartY = e.clientY;
+        dragSheet.classList.add('dragging');
+        handle.setPointerCapture(e.pointerId);
+      });
+      handle.addEventListener('pointermove', (e) => {
+        if (!dragSheet) return;
+        const dy = Math.max(0, e.clientY - dragStartY);
+        dragSheet.style.transform = 'translateY(' + dy + 'px)';
+      });
+      handle.addEventListener('pointerup', (e) => {
+        if (!dragSheet) return;
+        dragSheet.classList.remove('dragging');
+        const dy = e.clientY - dragStartY;
+        if (dy > 80) closeSheets();
+        else dragSheet.style.transform = '';
+        dragSheet = null;
+      });
+      handle.addEventListener('pointercancel', () => {
+        if (dragSheet) {
+          dragSheet.classList.remove('dragging');
+          dragSheet.style.transform = '';
+          dragSheet = null;
+        }
+      });
+    });
+
+    document.getElementById('shareAlibi').addEventListener('click', async () => {
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'Alibi Impossible', text: currentAlibiText });
+        } else {
+          await navigator.clipboard.writeText(currentAlibiText);
+          showToast('Skopírované do schránky');
+        }
+      } catch (_) { /* cancelled */ }
+    });
+
+    document.getElementById('copyAlibi').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(currentAlibiText);
+        showToast('Skopírované do schránky');
+      } catch (_) {
+        showToast('Kopírovanie zlyhalo');
+      }
+    });
+
+    updateBadges();
+    applyFilter();
+  </script>
+</body>
+</html>

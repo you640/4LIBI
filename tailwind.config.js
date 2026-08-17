@@ -4,36 +4,63 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ForenzDetectiv design tokens (BACKLOG.md S2.5)
-        bg: {
-          DEFAULT: "#020617", // slate-950
-          surface: "#0f172a", // slate-900
+        primary: {
+          DEFAULT: "var(--md-sys-color-primary)",
+          container: "var(--md-sys-color-primary-container)",
+          on: "var(--md-sys-color-on-primary)",
+          "on-container": "var(--md-sys-color-on-primary-container)",
         },
+        surface: {
+          DEFAULT: "var(--md-sys-color-surface)",
+          lowest: "var(--md-sys-color-surface-container-lowest)",
+          low: "var(--md-sys-color-surface-container-low)",
+          container: "var(--md-sys-color-surface-container)",
+          high: "var(--md-sys-color-surface-container-high)",
+          highest: "var(--md-sys-color-surface-container-highest)",
+          on: "var(--md-sys-color-on-surface)",
+        },
+        outline: {
+          DEFAULT: "var(--md-sys-color-outline)",
+          variant: "var(--md-sys-color-outline-variant)",
+        },
+        error: {
+          DEFAULT: "var(--md-sys-color-error)",
+          container: "var(--md-sys-color-error-container)",
+          on: "var(--md-sys-color-on-error)",
+          "on-container": "var(--md-sys-color-on-error-container)",
+        },
+        success: {
+          DEFAULT: "var(--md-sys-color-success)",
+          container: "var(--md-sys-color-success-container)",
+          "on-container": "var(--md-sys-color-on-success-container)",
+        },
+        /* keep short aliases used in older components */
         cta: {
-          DEFAULT: "#f59e0b", // amber-500
-          hover: "#d97706", // amber-600
+          DEFAULT: "var(--md-sys-color-primary)",
+          hover: "var(--md-sys-color-on-primary-container)",
         },
-        accent: "#60a5fa", // blue-400
-        danger: "#ef4444", // red-500
-        success: "#34d399", // emerald-400
-      },
-      borderColor: {
-        danger: "#ef4444",
-        accent: "#60a5fa",
+        danger: "var(--md-sys-color-error)",
+        accent: "var(--md-sys-color-outline)",
+        bg: {
+          DEFAULT: "var(--md-sys-color-surface)",
+          milk: "var(--md-sys-color-surface-container-low)",
+          surface: "var(--md-sys-color-surface-container-lowest)",
+        },
       },
       fontFamily: {
         sans: [
           "-apple-system",
           "BlinkMacSystemFont",
-          "Inter",
-          "Segoe UI",
-          "Roboto",
+          "SF Pro Text",
+          "SF Pro Display",
+          "Helvetica Neue",
+          "Helvetica",
+          "Arial",
           "sans-serif",
         ],
       },
-      // Mobile-first: max width pre app shell
       maxWidth: {
-        app: "480px",
+        app: "430px",
       },
     },
   },

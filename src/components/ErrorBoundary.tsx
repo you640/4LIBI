@@ -52,7 +52,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       return (
-        <div className="app-shell bg-bg flex items-center justify-center p-6">
+        <div className="app-shell">
+          <div className="island-safe-zone" aria-hidden="true" data-testid="island-safe-zone">
+            <div className="dynamic-island" />
+          </div>
+          <div className="app-body items-center justify-center p-6">
           <div className="card p-6 max-w-sm w-full text-center">
             {/* Ikona */}
             <div className="w-16 h-16 rounded-2xl bg-danger/10 flex items-center justify-center mx-auto mb-4">
@@ -61,34 +65,32 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </svg>
             </div>
 
-            <h1 className="text-lg font-bold text-slate-100 mb-2">
+            <h1 className="text-lg font-semibold text-surface-on mb-2 tracking-tight">
               Niečo sa pokazilo
             </h1>
-            <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+            <p className="text-sm text-outline mb-4 leading-relaxed">
               Nastala neočakávaná chyba. Tím bol automaticky informovaný.
             </p>
 
-            {/* Detail chyby (len v dev) */}
             {import.meta.env.DEV && this.state.error && (
-              <pre className="text-[11px] text-slate-500 bg-bg-surface p-3 rounded-xl mb-4 overflow-auto max-h-32 text-left">
+              <pre className="text-[11px] text-outline bg-surface-low p-3 rounded-xl mb-4 overflow-auto max-h-32 text-left">
                 {this.state.error.message}
               </pre>
             )}
 
-            {/* Tlačidlá */}
             <button onClick={this.handleReload} className="btn-primary mb-2">
               Obnoviť aplikáciu
             </button>
-            <button onClick={this.handleReset} className="btn-secondary text-sm">
+            <button onClick={this.handleReset} className="m3-btn-outlined text-sm">
               Skúsiť znova
             </button>
 
-            {/* Event ID pre debug */}
             {this.state.eventId && (
-              <p className="text-[10px] text-slate-600 mt-4">
+              <p className="text-[10px] text-outline mt-4">
                 ID: {this.state.eventId}
               </p>
             )}
+          </div>
           </div>
         </div>
       );

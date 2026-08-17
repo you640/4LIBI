@@ -3,9 +3,6 @@ import type { Analysis, TimelineEvent } from "../../types";
 import {
   ArrowLeftIcon,
   SearchIcon,
-  ClockIcon,
-  PeopleIcon,
-  EvidenceIcon,
   AlertIcon,
   CheckIcon,
 } from "../Icons";
@@ -24,7 +21,6 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
   const [search, setSearch] = useState("");
   const [showShare, setShowShare] = useState(false);
 
-  // Chronologické zoradenie timeline (od najstaršej po najnovšiu)
   const sortedTimeline = useMemo(() => {
     return [...analysis.timeline].sort((a, b) => {
       if (!a.timestamp) return 1;
@@ -33,7 +29,6 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
     });
   }, [analysis.timeline]);
 
-  // Filtrovanie timeline podľa vyhľadávania
   const filteredTimeline = useMemo(() => {
     if (!search.trim()) return sortedTimeline;
     const q = search.toLowerCase();
@@ -45,7 +40,6 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
     );
   }, [sortedTimeline, search]);
 
-  // Počet rozporov (eventy s tagom "rozpor")
   const contradictionCount = analysis.timeline.filter((e) =>
     e.tags.includes("rozpor")
   ).length;
@@ -61,80 +55,64 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
     });
   };
 
-  const TABS: { id: Tab; label: string; count: number; Icon: typeof ClockIcon }[] = [
-    { id: "timeline", label: "Časová os", count: analysis.timeline.length, Icon: ClockIcon },
-    { id: "persons", label: "Osoby", count: analysis.persons.length, Icon: PeopleIcon },
-    { id: "evidence", label: "Dôkazy", count: analysis.evidence.length, Icon: EvidenceIcon },
-    {
-      id: "relationships",
-      label: "Vzťahy",
-      count: analysis.relationships.length,
-      Icon: AlertIcon,
-    },
+  const TABS: { id: Tab; label: string; count: number }[] = [
+    { id: "timeline", label: "Časová os", count: analysis.timeline.length },
+    { id: "persons", label: "Osoby", count: analysis.persons.length },
+    { id: "evidence", label: "Dôkazy", count: analysis.evidence.length },
+    { id: "relationships", label: "Vzťahy", count: analysis.relationships.length },
   ];
 
   return (
     <div className="px-5 pt-4 pb-8">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={onBack} className="text-slate-400 -ml-1">
+        <button onClick={onBack} className="text-stone-500 -ml-1" aria-label="Späť">
           <ArrowLeftIcon className="w-6 h-6" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-slate-100 truncate">
+          <h1 className="text-lg font-semibold text-stone-800 truncate tracking-tight">
             {analysis.metadata.document_name}
           </h1>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-stone-500">
             {formatTime(analysis.metadata.upload_date)} · {analysis.metadata.language.toUpperCase()}
           </p>
         </div>
       </div>
 
-      {/* Rozpor badge */}
       {contradictionCount > 0 && (
-        <div className="card border-danger/30 bg-danger/5 p-3 mb-4 flex items-center gap-2">
+        <div className="card p-3 mb-3 flex items-center gap-2">
           <AlertIcon className="w-5 h-5 text-danger flex-shrink-0" />
-          <p className="text-sm text-danger font-medium">
+          <p className="text-sm text-danger font-medium flex-1">
             Nájdené {contradictionCount}{" "}
             {contradictionCount === 1 ? "rozpor" : "rozpory"}
           </p>
+          <button
+            onClick={() => setShowShare(true)}
+            className="text-xs font-medium text-stone-600"
+          >
+            Zdieľať
+          </button>
         </div>
       )}
 
-      {/* Share tlacidlo */}
-      {contradictionCount > 0 && (
-        <button
-          onClick={() => setShowShare(true)}
-          className="btn-secondary flex items-center justify-center gap-2 mb-4 text-sm"
-        >
-          <AlertIcon className="w-4 h-4 text-danger" />
-          Zdieľať rozpor
-        </button>
-      )}
-
-      {/* Tab navigácia — horizontálny scroll */}
-      <div className="flex gap-1 mb-4 overflow-x-auto no-scrollbar">
-        {TABS.map(({ id, label, count, Icon }) => (
+      <div className="segmented mb-4 overflow-x-auto no-scrollbar">
+        {TABS.map(({ id, label, count }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`flex-1 min-w-fit px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
               activeTab === id
-                ? "bg-cta/10 text-cta"
-                : "text-slate-500"
+                ? "bg-white/80 text-stone-800 shadow-sm"
+                : "text-stone-500"
             }`}
           >
-            <Icon className="w-4 h-4" />
-            {label}
-            <span className="text-[10px] text-slate-600">({count})</span>
+            {label} {count}
           </button>
         ))}
       </div>
 
-      {/* Vyhľadávanie (len pre timeline) */}
       {activeTab === "timeline" && (
         <div className="relative mb-4">
-          <SearchIcon className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <SearchIcon className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
@@ -145,7 +123,6 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
         </div>
       )}
 
-      {/* Obsah podľa tabu */}
       {activeTab === "timeline" && (
         <Timeline
           events={filteredTimeline}
@@ -166,7 +143,6 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
         />
       )}
 
-      {/* Alibi Impossible share modal */}
       {showShare && (
         <AlibiShareCard analysis={analysis} onClose={() => setShowShare(false)} />
       )}
@@ -174,7 +150,6 @@ export function SherlockResults({ analysis, onBack }: SherlockResultsProps) {
   );
 }
 
-// === Timeline komponent ===
 function Timeline({
   events,
   persons,
@@ -190,7 +165,7 @@ function Timeline({
 
   if (events.length === 0) {
     return (
-      <p className="text-sm text-slate-500 text-center py-8">
+      <p className="text-sm text-stone-500 text-center py-8">
         Žiadne udalosti nenájdené.
       </p>
     );
@@ -201,8 +176,7 @@ function Timeline({
 
   return (
     <div className="relative pl-5">
-      {/* Vertikálna línia */}
-      <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-slate-700" />
+      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-stone-300" />
 
       {events.map((event) => {
         const isExpanded = expanded === event.id;
@@ -210,72 +184,58 @@ function Timeline({
         const isAlibi = event.tags.includes("alibi");
 
         return (
-          <div key={event.id} className="relative mb-4">
-            {/* Bod na osi */}
+          <div key={event.id} className="relative mb-3">
             <div
               className={`absolute -left-[13px] top-3 w-3.5 h-3.5 rounded-full border-2 border-bg ${
                 isContradiction
-                  ? "bg-danger ring-2 ring-danger/30"
+                  ? "bg-danger"
                   : isAlibi
-                  ? "bg-accent ring-2 ring-accent/30"
-                  : "bg-slate-600"
+                  ? "bg-accent"
+                  : "bg-stone-300"
               }`}
             />
 
-            {/* Karta eventu */}
             <button
               onClick={() => {
-                  const newExpanded = isExpanded ? null : event.id;
-                  setExpanded(newExpanded);
-                  // S3.1 — track contradiction_viewed pri rozbaleni rozporu
-                  if (newExpanded && event.tags.includes("rozpor")) {
-                    trackContradictionViewed({ contradictionId: event.id });
-                  }
-                }}
-              className={`card w-full p-3 text-left transition-colors hover:border-white/10 ${
-                  isContradiction
-                    ? "border-l-danger border-l-2"
-                    : isAlibi
-                    ? "border-l-accent border-l-2"
-                    : ""
-                }`}
+                const newExpanded = isExpanded ? null : event.id;
+                setExpanded(newExpanded);
+                if (newExpanded && event.tags.includes("rozpor")) {
+                  trackContradictionViewed({ contradictionId: event.id });
+                }
+              }}
+              className={`card w-full p-3 text-left ${
+                isContradiction
+                  ? "border-l-danger border-l-2"
+                  : isAlibi
+                  ? "border-l-accent border-l-2"
+                  : ""
+              }`}
             >
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500 mb-0.5">
-                    {formatTime(event.timestamp)}
-                  </p>
-                  <h3 className={`text-sm font-semibold leading-tight ${
-                      isContradiction
-                        ? "text-danger"
-                        : isAlibi
-                        ? "text-accent"
-                        : "text-slate-100"
-                    }`}>
-                    {event.title}
-                  </h3>
-                </div>
-                {/* Confidence */}
-                {event.confidence < 0.9 && (
-                  <span className="text-[10px] text-slate-600 flex-shrink-0">
-                    {Math.round(event.confidence * 100)}%
-                  </span>
-                )}
-              </div>
+              <p className="text-xs text-stone-400 mb-0.5">
+                {formatTime(event.timestamp)}
+              </p>
+              <h3
+                className={`text-sm font-semibold leading-tight ${
+                  isContradiction
+                    ? "text-danger"
+                    : isAlibi
+                    ? "text-accent"
+                    : "text-stone-800"
+                }`}
+              >
+                {event.title}
+              </h3>
 
-              {/* Tagy */}
               <div className="flex flex-wrap gap-1 mt-2">
                 {event.tags.map((tag) => (
                   <span
                     key={tag}
-                    className={`text-[10px] px-2 py-0.5 rounded-full ${
+                    className={`chip ${
                       tag === "rozpor"
-                        ? "bg-danger/15 text-danger"
+                        ? "text-danger"
                         : tag === "alibi"
-                        ? "bg-accent/15 text-accent"
-                        : tag === "svedectvo"
-                        ? "bg-blue-500/15 text-blue-400"
-                        : "bg-slate-700/50 text-slate-400"
+                        ? "text-accent"
+                        : ""
                     }`}
                   >
                     {tag}
@@ -283,71 +243,45 @@ function Timeline({
                 ))}
               </div>
 
-              {/* Rozbalený detail */}
               {isExpanded && (
-                <div className="mt-3 pt-3 border-t border-white/5 space-y-3">
-                  <p className="text-xs text-slate-300 leading-relaxed">
+                <div className="mt-3 pt-3 border-t border-stone-200/80 space-y-3">
+                  <p className="text-xs text-stone-600 leading-relaxed">
                     {event.description}
                   </p>
 
                   {event.location && (
-                    <p className="text-xs text-slate-500">📍 {event.location}</p>
+                    <p className="text-xs text-stone-500">{event.location}</p>
                   )}
 
-                  {/* Osoby */}
                   {event.persons_involved.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-slate-600 uppercase tracking-wide mb-1">
-                        Osoby
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {event.persons_involved.map((pid) => {
-                          const p = getPerson(pid);
-                          return p ? (
-                            <span
-                              key={pid}
-                              className="text-[11px] bg-slate-700/40 px-2 py-0.5 rounded-md text-slate-300"
-                            >
-                              {p.name} ({p.role})
-                            </span>
-                          ) : null;
-                        })}
-                      </div>
+                    <div className="flex flex-wrap gap-1">
+                      {event.persons_involved.map((pid) => {
+                        const p = getPerson(pid);
+                        return p ? (
+                          <span key={pid} className="chip text-stone-600">
+                            {p.name}
+                          </span>
+                        ) : null;
+                      })}
                     </div>
                   )}
 
-                  {/* Dôkazy */}
                   {event.evidence_links.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-slate-600 uppercase tracking-wide mb-1">
-                        Dôkazy
-                      </p>
-                      <div className="space-y-1">
-                        {event.evidence_links.map((eid) => {
-                          const ev = getEvidence(eid);
-                          return ev ? (
-                            <div
-                              key={eid}
-                              className="text-[11px] bg-slate-800/50 p-2 rounded-md"
-                            >
-                              <span className="text-slate-500">[{ev.type}]</span>{" "}
-                              <span className="text-slate-300">{ev.content}</span>
-                            </div>
-                          ) : null;
-                        })}
-                      </div>
+                    <div className="space-y-1">
+                      {event.evidence_links.map((eid) => {
+                        const ev = getEvidence(eid);
+                        return ev ? (
+                          <p key={eid} className="text-[11px] text-stone-500">
+                            {ev.content}
+                          </p>
+                        ) : null;
+                      })}
                     </div>
                   )}
 
-                  {/* Source text */}
-                  <div className="bg-slate-800/40 p-2 rounded-md">
-                    <p className="text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">
-                      Zdrojový text
-                    </p>
-                    <p className="text-[11px] text-slate-500 italic">
-                      „{event.source_text}"
-                    </p>
-                  </div>
+                  <p className="text-[11px] text-stone-400 italic">
+                    „{event.source_text}"
+                  </p>
                 </div>
               )}
             </button>
@@ -358,31 +292,17 @@ function Timeline({
   );
 }
 
-// === Persons komponent ===
 function Persons({ persons }: { persons: Analysis["persons"] }) {
-  const roleColors: Record<string, string> = {
-    obvinený: "bg-danger/15 text-danger",
-    svedok: "bg-blue-500/15 text-blue-400",
-    svedkyňa: "bg-blue-500/15 text-blue-400",
-    obete: "bg-amber-500/15 text-amber-400",
-  };
-
   return (
     <div className="space-y-2">
       {persons.map((person) => (
         <div key={person.id} className="card p-4">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-slate-100">{person.name}</h3>
-            <span
-              className={`text-[10px] px-2 py-0.5 rounded-full ${
-                roleColors[person.role] || "bg-slate-700/50 text-slate-400"
-              }`}
-            >
-              {person.role}
-            </span>
+            <h3 className="text-sm font-semibold text-stone-800">{person.name}</h3>
+            <span className="chip">{person.role}</span>
           </div>
           {person.description && (
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-stone-500 leading-relaxed">
               {person.description}
             </p>
           )}
@@ -392,7 +312,6 @@ function Persons({ persons }: { persons: Analysis["persons"] }) {
   );
 }
 
-// === Evidence komponent ===
 function Evidence({ evidence }: { evidence: Analysis["evidence"] }) {
   const sorted = [...evidence].sort((a, b) => b.relevance_score - a.relevance_score);
 
@@ -401,33 +320,19 @@ function Evidence({ evidence }: { evidence: Analysis["evidence"] }) {
       {sorted.map((ev) => (
         <div key={ev.id} className="card p-4">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-stone-400">
               {ev.type}
             </span>
-            {/* Relevance bar */}
-            <div className="flex items-center gap-1">
-              <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-cta rounded-full"
-                  style={{ width: `${ev.relevance_score * 10}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-slate-500">
-                {ev.relevance_score}/10
-              </span>
-            </div>
+            <span className="text-[10px] text-stone-400">{ev.relevance_score}/10</span>
           </div>
-          <p className="text-sm text-slate-200 leading-relaxed mb-1">
-            {ev.content}
-          </p>
-          <p className="text-[11px] text-slate-500">📄 {ev.source}</p>
+          <p className="text-sm text-stone-800 leading-relaxed mb-1">{ev.content}</p>
+          <p className="text-[11px] text-stone-400">{ev.source}</p>
         </div>
       ))}
     </div>
   );
 }
 
-// === Relationships komponent ===
 function Relationships({
   relationships,
   persons,
@@ -442,24 +347,20 @@ function Relationships({
       {relationships.map((rel, idx) => (
         <div key={idx} className="card p-4">
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-sm font-medium text-slate-100">
+            <span className="text-sm font-medium text-stone-800">
               {getName(rel.person1_id)}
             </span>
-            <span className="text-[10px] bg-accent/15 text-accent px-2 py-0.5 rounded-full">
-              {rel.type}
-            </span>
-            <span className="text-sm font-medium text-slate-100">
+            <span className="chip">{rel.type}</span>
+            <span className="text-sm font-medium text-stone-800">
               {getName(rel.person2_id)}
             </span>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            {rel.description}
-          </p>
+          <p className="text-xs text-stone-500 leading-relaxed">{rel.description}</p>
           {rel.evidence_supporting.length > 0 && (
             <div className="mt-2 flex items-center gap-1">
               <CheckIcon className="w-3.5 h-3.5 text-success" />
-              <span className="text-[11px] text-slate-500">
-                Podporené dôkazmi: {rel.evidence_supporting.join(", ")}
+              <span className="text-[11px] text-stone-400">
+                {rel.evidence_supporting.join(", ")}
               </span>
             </div>
           )}

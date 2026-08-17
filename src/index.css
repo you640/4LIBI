@@ -2,12 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === iPhone 17 Air optimalizácia === */
-/* 100dvh = dynamic viewport height (rieši mobile address bar skok) */
 :root {
   --app-height: 100dvh;
+  /* iPhone 17 Air / Dynamic Island — never put touchables in this band */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --island-min: 54px;
+  --touch-top-gap: 12px;
+  --island-band: calc(
+    max(var(--safe-top), var(--island-min)) + var(--touch-top-gap)
+  );
+  --content-top: var(--island-band);
+  --nav-height: 80px;
+
+  --md-sys-color-primary: #1565c0;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d3e3fd;
+  --md-sys-color-on-primary-container: #041e49;
+
+  --md-sys-color-surface: #f7f9fc;
+  --md-sys-color-on-surface: #1a1c1e;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f1f3f5;
+  --md-sys-color-surface-container: #e8eaed;
+  --md-sys-color-surface-container-high: #e0e3e7;
+  --md-sys-color-surface-container-highest: #d5d8dc;
+
+  --md-sys-color-outline: #73777f;
+  --md-sys-color-outline-variant: #c4c7cc;
+
+  --md-sys-color-error: #c5221f;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #fce8e6;
+  --md-sys-color-on-error-container: #410e0b;
+
+  --md-sys-color-warning-container: #fff0c2;
+  --md-sys-color-on-warning-container: #5c4200;
+
+  --md-sys-color-success: #1e8e3e;
+  --md-sys-color-success-container: #ceead6;
+  --md-sys-color-on-success-container: #0d652d;
+
+  --md-sys-color-inverse-surface: #2f3033;
+  --md-sys-color-on-inverse-surface: #f1f0f4;
+  --md-sys-color-scrim: rgba(0, 0, 0, 0.32);
+
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-full: 9999px;
+
+  --md-sys-elevation-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15),
+    0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --md-sys-elevation-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15),
+    0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+
+  --md-sys-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 @layer base {
@@ -24,23 +78,23 @@
   }
 
   body {
-    @apply bg-bg text-slate-100 font-sans antialiased;
     margin: 0;
     padding: 0;
-    /* Zabráni pull-to-refresh a bounce na iOS */
     overflow: hidden;
+    font-family: var(--md-sys-font-family);
+    color: var(--md-sys-color-on-surface);
+    background: #121316;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   #root {
-    height: var(--app-height);
-    /* Fallback pre staršie prehliadače */
-    height: 100vh;
     height: 100dvh;
+    height: var(--app-height);
     display: flex;
     flex-direction: column;
   }
 
-  /* Skry scrollbar ale zachovaj scroll */
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -51,59 +105,225 @@
 }
 
 @layer components {
-  /* App shell — fixed na 100dvh, obsah scrolluje vnútri */
   .app-shell {
     height: 100dvh;
     height: var(--app-height);
+    max-height: 100dvh;
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
     position: relative;
+    overflow: hidden;
+    background: var(--md-sys-color-surface);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 24px 80px rgba(0, 0, 0, 0.45);
   }
 
-  /* Hlavný obsah — scroll medzi headerom a bottom nav */
+  /* Dead band: visual island only. Swallows hits so nothing under the camera is tappable. */
+  .island-safe-zone {
+    flex-shrink: 0;
+    height: var(--island-band);
+    min-height: var(--island-band);
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    position: relative;
+    background: var(--md-sys-color-surface);
+    z-index: 70;
+  }
+
+  .dynamic-island {
+    position: absolute;
+    left: 50%;
+    top: 11px;
+    transform: translateX(-50%);
+    width: 126px;
+    height: 37px;
+    border-radius: var(--md-sys-shape-corner-full);
+    background: #000000;
+    pointer-events: none;
+  }
+
+  .m3-app-bar,
+  .m3-case-header,
+  .m3-search-bar {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .m3-app-bar {
+    min-height: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px 0 16px;
+    background: var(--md-sys-color-surface);
+  }
+
+  .m3-search-bar {
+    padding: 0 16px 8px;
+    background: var(--md-sys-color-surface);
+  }
+
+  .m3-search-bar .input {
+    min-height: 44px;
+  }
+
+  .app-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   .app-content {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding-top: var(--safe-top);
+    overscroll-behavior: contain;
+    padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 8px);
   }
 
-  /* Bottom navigation s safe area */
-  .bottom-nav {
-    padding-bottom: var(--safe-bottom);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+  .m3-nav-bar {
+    flex-shrink: 0;
+    height: calc(var(--nav-height) + var(--safe-bottom));
+    padding: 12px 4px calc(12px + var(--safe-bottom));
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-around;
+    background: var(--md-sys-color-surface-container);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    z-index: 40;
   }
 
-  /* Header s safe area */
-  .app-header {
-    padding-top: var(--safe-top);
-    padding-top: env(safe-area-inset-top, 0px);
+  .m3-card-filled {
+    background: var(--md-sys-color-surface-container-low);
+    border-radius: var(--md-sys-shape-corner-large);
+    padding: 16px;
   }
 
-  /* Tlačidlá */
+  .m3-card-outlined {
+    background: var(--md-sys-color-surface-container-lowest);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-large);
+    padding: 16px;
+  }
+
+  .m3-btn-filled {
+    border: none;
+    border-radius: var(--md-sys-shape-corner-full);
+    padding: 12px 20px;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    font: 600 14px/20px var(--md-sys-font-family);
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    transition: transform 120ms ease;
+  }
+  .m3-btn-filled:active {
+    transform: scale(0.98);
+  }
+  .m3-btn-filled:disabled {
+    opacity: 0.4;
+  }
+
+  .m3-btn-outlined {
+    border: 1px solid var(--md-sys-color-outline);
+    border-radius: var(--md-sys-shape-corner-full);
+    padding: 12px 20px;
+    background: transparent;
+    color: var(--md-sys-color-primary);
+    font: 600 14px/20px var(--md-sys-font-family);
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .m3-btn-text {
+    border: none;
+    background: transparent;
+    padding: 8px 12px;
+    border-radius: var(--md-sys-shape-corner-full);
+    font: 500 14px/20px var(--md-sys-font-family);
+    cursor: pointer;
+    color: var(--md-sys-color-on-surface);
+  }
+  .m3-btn-text-success {
+    color: var(--md-sys-color-success);
+  }
+  .m3-btn-text-muted {
+    color: var(--md-sys-color-outline);
+  }
+
+  .m3-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: var(--md-sys-shape-corner-small);
+    font: 500 11px/16px var(--md-sys-font-family);
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+  }
+  .m3-chip-medium {
+    background: var(--md-sys-color-warning-container);
+    color: var(--md-sys-color-on-warning-container);
+  }
+
+  .m3-nav-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 56px;
+    height: 32px;
+    border-radius: var(--md-sys-shape-corner-full);
+  }
+  .m3-nav-pill-active {
+    background: var(--md-sys-color-primary-container);
+    padding: 4px 16px;
+    color: var(--md-sys-color-on-primary-container);
+  }
+
   .btn-primary {
-    @apply bg-cta text-bg font-semibold py-4 px-6 rounded-2xl w-full
-           active:scale-[0.98] transition-transform duration-100
-           disabled:opacity-40 disabled:active:scale-100;
+    @apply m3-btn-filled;
   }
-
-  .btn-secondary {
-    @apply border border-slate-700 text-slate-200 font-medium py-4 px-6 rounded-2xl w-full
-           active:scale-[0.98] transition-transform duration-100;
-  }
-
-  /* Karty */
   .card {
-    @apply bg-bg-surface border border-white/5 rounded-2xl;
+    @apply m3-card-outlined;
   }
-
-  /* Input */
+  .glass {
+    background: var(--md-sys-color-surface-container-lowest);
+    border: 1px solid var(--md-sys-color-outline-variant);
+  }
   .input {
-    @apply bg-bg-surface border border-slate-700 rounded-xl px-4 py-3
-           text-slate-100 placeholder:text-slate-500
-           focus:outline-none focus:border-cta transition-colors w-full;
+    width: 100%;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-full);
+    padding: 10px 14px;
+    background: var(--md-sys-color-surface-container-lowest);
+    color: var(--md-sys-color-on-surface);
+    font: 400 14px/20px var(--md-sys-font-family);
+    outline: none;
+  }
+  .input:focus {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 3px var(--md-sys-color-primary-container);
+  }
+  .segmented {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-surface-container);
+  }
+  .chip {
+    @apply m3-chip;
   }
 }

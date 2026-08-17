@@ -11,11 +11,16 @@ export async function extractTextFromPdf(
   // Dynamický import pdfjs-dist (lazy-load — Issue S2.3.4)
   const pdfjsLib = await import("pdfjs-dist");
 
-  // Konfigurácia pre Node.js (bez worker)
+  // Prehliadač: pdfjs-dist 6 vyžaduje workerSrc (disableWorker v browseri nestačí)
+  if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = worker.default;
+  }
+
   const loadingTask = pdfjsLib.getDocument({
     data: pdfBuffer,
-    // disableWorker nie je v typoch, ale funguje v Node.js
-    ...({ disableWorker: true } as any),
+    // disableWorker nie je v typoch, ale funguje v Node.js / Convex
+    ...(typeof window === "undefined" ? ({ disableWorker: true } as any) : {}),
   });
 
   const pdf = await loadingTask.promise;

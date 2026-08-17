@@ -4,7 +4,14 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default tseslint.config(
   {
-    ignores: ["dist/", "convex/_generated/", "node_modules/", "tsconfig.tsbuildinfo", "nuxt-4/"],
+    ignores: [
+      "dist/",
+      "convex/_generated/",
+      "generated/",
+      "node_modules/",
+      "tsconfig.tsbuildinfo",
+      "nuxt-4/",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

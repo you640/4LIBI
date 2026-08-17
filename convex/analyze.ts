@@ -5,12 +5,12 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { callMistralApi } from "../src/lib/mistralApi";
-import { extractTextFromPdf, truncateText } from "../src/lib/pdfParser";
+import { truncateText } from "../src/lib/pdfParser";
+import { extractTextFromBytes } from "../src/lib/extractDocumentText";
 import {
   SHERLOCK_SYSTEM_PROMPT,
   buildUserPrompt,
-  validateAnalysisResponse,
-  extractJson,
+  parseAnalysisResponse,
 } from "../src/lib/sherlockPrompt";
 
 export const analyze = action({
@@ -20,6 +20,11 @@ export const analyze = action({
     console.log(`[Sherlock] Starting analysis for ${args.fileIds.length} files`);
 
     // 1. Overenie vlastnictva + stiahnutie suborov (S4.2.1, S4.2.2)
+    const apiKey = process.env.MISTRAL_API_KEY;
+    if (!apiKey) {
+      throw new Error("Chyba MISTRAL_API_KEY - nastavte v Convex environment variables");
+    }
+
     const texts: string[] = [];
     for (const fileId of args.fileIds) {
       const file = await ctx.db.get(fileId);
@@ -30,14 +35,17 @@ export const analyze = action({
 
       const arrayBuffer = await blob.arrayBuffer();
 
-      // 2. Extrahuj text z PDF (S4.2.3)
       try {
-        const text = await extractTextFromPdf(arrayBuffer);
+        const text = await extractTextFromBytes(
+          arrayBuffer,
+          { name: file.name, mime: file.contentType },
+          apiKey
+        );
         texts.push(text);
         console.log(`[Sherlock] Extracted ${text.length} chars from ${file.name}`);
       } catch (error) {
         throw new Error(
-          `PDF parsing zlyhal pre ${file.name}: ${
+          `Citanie zlyhalo pre ${file.name}: ${
             error instanceof Error ? error.message : String(error)
           }`
         );
@@ -48,28 +56,19 @@ export const analyze = action({
     const combinedText = texts.join("\n\n---\n\n");
     const truncatedText = truncateText(combinedText);
 
-    // 3. Posli do Mistral API (S4.2.4, S4.2.8)
-    const apiKey = process.env.MISTRAL_API_KEY;
-    if (!apiKey) {
-      throw new Error("Chyba MISTRAL_API_KEY - nastavte v Convex environment variables");
-    }
-
     const llmResponse = await callMistralApi(
       [
         { role: "system", content: SHERLOCK_SYSTEM_PROMPT },
         { role: "user", content: buildUserPrompt(truncatedText) },
       ],
-      { apiKey, temperature: 0.3, maxTokens: 8000 }
+      { apiKey, temperature: 0.3, maxTokens: 16000, jsonObject: true }
     );
 
-    // 4. Validacia JSON (S4.2.5)
-    if (!validateAnalysisResponse(llmResponse)) {
-      console.error("[Sherlock] Invalid LLM response:", llmResponse.slice(0, 500));
+    const analysisData = parseAnalysisResponse(llmResponse, "Analyza");
+    if (!analysisData) {
+      console.error("[Sherlock] Invalid LLM response:", llmResponse.slice(0, 800));
       throw new Error("LLM vratil neplatny format JSON");
     }
-
-    // 5. Extrahuj a uloz vysledok (S4.2.6)
-    const analysisData = extractJson(llmResponse);
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     console.log(

@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { SherlockAnalyzer } from "../components/sherlock/SherlockAnalyzer";
-import { SherlockResults } from "../components/sherlock/SherlockResults";
-import { DEMO_ANALYSIS, type Analysis } from "../types";
-import { ArrowLeftIcon } from "../components/Icons";
-import { analyzeMultipleFiles } from "../lib/sherlockAnalyze";
+import { AppBar } from "../components/m3/AppBar";
+import { analyzeViaApi } from "../lib/api";
+import { rememberLastCaseId } from "../lib/caseUtils";
 import {
   trackDemoLaunched,
   trackCaseCreated,
@@ -13,24 +12,23 @@ import {
   trackErrorOccurred,
 } from "../lib/analytics";
 import { auditCaseCreate } from "../lib/auditLog";
+import { DEMO_ANALYSIS } from "../types";
 
 export function SherlockPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const showDemo = searchParams.get("demo") === "true";
-  const tab = (searchParams.get("tab") as "sandbox" | "upload") || "sandbox";
 
-  // Auto-spusť demo ak prídem z home s ?demo=true
   useEffect(() => {
-    if (showDemo && !analysis && !isAnalyzing) {
+    if (showDemo && !isAnalyzing) {
       runDemoAnalysis();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDemo]);
 
-  // === DEMO analýza (iba pre demo CTA — označené ako isDemo: true) ===
   const runDemoAnalysis = () => {
     setIsAnalyzing(true);
     setError(null);
@@ -38,11 +36,8 @@ export function SherlockPage() {
     trackDemoLaunched({ source: "home_cta" });
     auditCaseCreate({ fileCount: 1, source: "demo" });
 
-    // Simulácia 1.5s (demo nepotrebuje reálny API call)
     setTimeout(() => {
-      setAnalysis(DEMO_ANALYSIS);
-      setIsAnalyzing(false);
-
+      rememberLastCaseId("demo");
       const contradictionCount = DEMO_ANALYSIS.timeline.filter((e) =>
         e.tags.includes("rozpor")
       ).length;
@@ -54,98 +49,81 @@ export function SherlockPage() {
           isDemo: true,
         });
       }
-    }, 1500);
+      setIsAnalyzing(false);
+      navigate("/spisy/demo/rozpory", { replace: true });
+    }, 1200);
   };
 
-  // === REÁLNA analýza — Mistral API naostro ===
   const handleAnalyze = async (files: File[]) => {
     setIsAnalyzing(true);
     setError(null);
 
-    trackAnalysisStarted({ fileCount: files.length, source: tab });
-    trackCaseCreated({ fileCount: files.length, source: tab });
-    auditCaseCreate({ fileCount: files.length, source: tab });
+    trackAnalysisStarted({ fileCount: files.length, source: "upload" });
+    trackCaseCreated({ fileCount: files.length, source: "upload" });
+    auditCaseCreate({ fileCount: files.length, source: "upload" });
 
     try {
-      // Reálny Mistral API call — PDF → text → LLM → JSON
-      const result = await analyzeMultipleFiles(files);
-      setAnalysis(result);
+      const result = await analyzeViaApi(files);
+      if (!result.data) {
+        throw new Error("Server nevrátil dáta analýzy.");
+      }
 
-      // Track contradiction_detected z reálnej analýzy
-      const contradictionCount = result.timeline.filter((e) =>
+      const contradictionCount = result.data.timeline.filter((e) =>
         e.tags.includes("rozpor")
       ).length;
       if (contradictionCount > 0) {
-        const hasAlibiConflict = result.timeline.some((e) =>
+        const hasAlibiConflict = result.data.timeline.some((e) =>
           e.tags.includes("alibi")
         );
         trackContradictionDetected({
           count: contradictionCount,
           hasAlibiConflict,
-          caseId: result.metadata.document_name,
+          caseId: result.id,
           isDemo: false,
         });
       }
+
+      rememberLastCaseId(result.id);
+      navigate(`/spisy/${result.id}/rozpory`, { replace: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Neznáma chyba pri analýze";
+      const message =
+        err instanceof Error ? err.message : "Neznáma chyba pri analýze";
       setError(message);
       trackErrorOccurred({
         errorType: "analysis_failed",
         errorMessage: message,
-        context: "sherlock_analyze_mistral",
+        context: "sherlock_analyze_api",
       });
-    } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const handleReset = () => {
-    setAnalysis(null);
-    setError(null);
-    setSearchParams({});
-  };
-
-  // Ak je analýza hotová, zobraz výsledky
-  if (analysis && !isAnalyzing) {
-    return <SherlockResults analysis={analysis} onBack={handleReset} />;
-  }
-
   return (
-    <div className="px-5 pt-4 pb-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        {analysis && (
-          <button onClick={handleReset} className="text-slate-400">
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
+    <div className="flex flex-col min-h-0 flex-1">
+      <AppBar title="Sherlock" />
+      <div className="app-content px-4 pt-2">
+        <p className="text-sm text-outline mb-4">
+          {isAnalyzing ? "Čítam dokument…" : "Nahrajte PDF, fotku alebo TXT"}
+        </p>
+
+        {isAnalyzing && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-10 h-10 border-2 border-outline-variant border-t-primary rounded-full animate-spin mb-4" />
+            <p className="text-sm text-surface-on">Čítam a analyzujem spis…</p>
+            <p className="text-xs text-outline mt-1">
+              Sken a foto môžu trvať dlhšie
+            </p>
+          </div>
         )}
-        <div>
-          <h1 className="text-xl font-bold text-slate-100">Sherlock AI</h1>
-          <p className="text-xs text-slate-500">
-            {isAnalyzing ? "Analyzujem dokumenty…" : "Vyberte dokumenty na analýzu"}
-          </p>
-        </div>
+
+        {!isAnalyzing && (
+          <SherlockAnalyzer
+            onAnalyze={handleAnalyze}
+            onDemo={runDemoAnalysis}
+            error={error}
+          />
+        )}
       </div>
-
-      {/* Loading state */}
-      {isAnalyzing && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="w-12 h-12 border-4 border-slate-700 border-t-cta rounded-full animate-spin mb-4" />
-          <p className="text-sm text-slate-400">Analyzujem spis…</p>
-          <p className="text-xs text-slate-600 mt-1">Môže trvať 10–30 sekúnd</p>
-        </div>
-      )}
-
-      {/* Analyzer UI */}
-      {!isAnalyzing && (
-        <SherlockAnalyzer
-          tab={tab}
-          onTabChange={(t) => setSearchParams({ tab: t })}
-          onAnalyze={handleAnalyze}
-          onDemo={runDemoAnalysis}
-          error={error}
-        />
-      )}
     </div>
   );
 }
