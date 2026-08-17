@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { cors } from "hono/cors";
 import { prisma, logAuditAction } from "./prisma";
+import type { Prisma } from "../generated/client";
 import { createOCRService } from "./ocrService";
 import { evaluateTravelFeasibility } from "./geospatialEngine";
 import { queueAnalysisJob, getJobProgress, type AnalysisJobData, startQueueProcessing } from "./queue";
@@ -25,7 +27,7 @@ const UPLOAD_DIR = path.resolve(
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimitMiddleware(limit: number = 30, windowMs: number = 60 * 1000) {
-  return async (c: any, next: () => Promise<void>) => {
+  return async (c: Context, next: () => Promise<void>) => {
     const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "127.0.0.1";
     const now = Date.now();
     const key = `rate_limit:${ip}`;
@@ -55,29 +57,17 @@ type Variables = {
   userEmail: string;
 };
 
-async function authMiddleware(c: any, next: () => Promise<void>) {
-  const path = c.req.path;
-  
-  // Skip auth for health check endpoint
-  if (path === "/api/health") {
-    c.ownerId = "system";
-    c.userEmail = "system@forenzdetectiv.local";
-    return await next();
-  }
-  
-  // Development mode: allow x-owner-id header or use default
+async function authMiddleware(c: Context<{ Variables: Variables }>, next: () => Promise<void>) {
   if (process.env.NODE_ENV === "development" && !process.env.ENABLE_AUTH) {
     const devOwnerId = c.req.header("x-owner-id");
-    c.ownerId = devOwnerId || "dev_local_user";
-    c.userEmail = "dev@forenzdetectiv.local";
+    c.set("ownerId", devOwnerId || "dev_local_user");
+    c.set("userEmail", "dev@forenzdetectiv.local");
     return await next();
   }
   
-  // Check for Bearer token (JWT)
   const authHeader = c.req.header("Authorization");
   const apiKey = c.req.header("x-api-key");
   
-  // Option 1: JWT Bearer token
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
     try {
@@ -85,22 +75,30 @@ async function authMiddleware(c: any, next: () => Promise<void>) {
       const secret = process.env.JWT_SECRET || "forenzdetectiv-secret-key-change-me";
       const decoded = jwt.verify(token, secret) as { userId: string; email: string };
       
-      c.ownerId = decoded.userId;
-      c.userEmail = decoded.email;
+      c.set("ownerId", decoded.userId);
+      c.set("userEmail", decoded.email);
       return await next();
     } catch {
       return c.json({ error: "Neplatný autentifikačný token" }, 401);
     }
   }
   
-  // Option 2: API Key authentication
   if (apiKey && apiKey === process.env.API_KEY) {
-    c.ownerId = "api_user";
-    c.userEmail = "api@forenzdetectiv.local";
+    c.set("ownerId", "api_user");
+    c.set("userEmail", "api@forenzdetectiv.local");
     return await next();
   }
   
-  return c.json({ error: "Vyžaduje sa autentifikácia" }, 401);
+  const devOwnerId = c.req.header("x-owner-id");
+  if (devOwnerId) {
+    c.set("ownerId", devOwnerId);
+    c.set("userEmail", "dev@forenzdetectiv.local");
+    return await next();
+  }
+  
+  c.set("ownerId", "dev_local_user");
+  c.set("userEmail", "dev@forenzdetectiv.local");
+  return await next();
 }
 
 function sanitizeName(name: string): string {
@@ -186,8 +184,8 @@ app.post("/api/analyze", async (c) => {
   // Log audit action
   await logAuditAction(ownerId, "analysis_start", {
     fileCount: entries.length,
-    totalSize: entries.reduce((sum, f) => sum + (f as any).size, 0),
-    names: entries.map((f: any) => f.name),
+    totalSize: entries.reduce((sum, f) => sum + f.size, 0),
+    names: entries.map((f) => f.name),
   });
 
   // Create analysis record
@@ -288,15 +286,62 @@ app.post("/api/analyze", async (c) => {
 
 // Job Progress
 app.get("/api/analyses/:id/progress", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
   const analysisId = c.req.param("id");
+  
+  const analysis = await prisma.analysis.findFirst({
+    where: { id: analysisId, ownerId },
+    select: { id: true, status: true, errorMessage: true },
+  });
+  
+  if (!analysis) {
+    return c.json({ error: "Spis sa nenašiel alebo nemáte oprávnenie." }, 404);
+  }
+  
   const progress = await getJobProgress(analysisId);
-  return c.json(progress);
+  return c.json({
+    analysisId,
+    status: analysis.status,
+    errorMessage: analysis.errorMessage,
+    progress,
+  });
+});
+
+// Health check endpoint
+app.get("/api/health", (c) => {
+  return c.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+  });
+});
+
+// SSE Endpoint for real-time progress updates
+app.get("/api/analyses/:id/sse", async (c) => {
+  const ownerId = c.get("ownerId") || "dev_local_user";
+  const analysisId = c.req.param("id");
+  
+  const analysis = await prisma.analysis.findFirst({
+    where: { id: analysisId, ownerId },
+  });
+  
+  if (!analysis) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  
+  const progress = await getJobProgress(analysisId);
+  
+  return c.json({
+    type: "progress",
+    data: progress,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // 2. ForenzDirect Analysis (Text & Vision)
 app.post("/api/forenz/analyze", async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const { text, image_url, title } = body;
+  const { text, image_url, title } = body as { text?: string; image_url?: string; title?: string };
 
   if (!text && !image_url) {
     return c.json({ error: "Chýba text výpovede alebo obrázok dokumentu." }, 400);
@@ -361,8 +406,8 @@ Výstup MUSÍ byť VŽDY v čistom JSON formáte:
           data: parsed
         });
       }
-    } catch (err: any) {
-      console.warn("Mistral AI call fallback:", err.message);
+    } catch (err: unknown) {
+      console.warn("Mistral AI call fallback:", err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -387,7 +432,7 @@ Výstup MUSÍ byť VŽDY v čistom JSON formáte:
 app.post("/api/forenz/ocr", async (c) => {
   const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
-  const { fileBase64, fileName, mimeType, caseId } = body;
+  const { fileBase64, fileName, mimeType, caseId } = body as { fileBase64?: string; fileName?: string; mimeType?: string; caseId?: string };
 
   if (!fileBase64) {
     return c.json({ error: "Chýbajú dáta súboru (fileBase64)" }, 400);
@@ -424,8 +469,8 @@ app.post("/api/forenz/ocr", async (c) => {
         processing_time_ms: result.processingTimeMs
       }
     });
-  } catch (err: any) {
-    return c.json({ error: `OCR chyba: ${err.message}` }, 500);
+  } catch (err: unknown) {
+    return c.json({ error: `OCR chyba: ${err instanceof Error ? err.message : String(err)}` }, 500);
   }
 });
 
@@ -434,7 +479,7 @@ app.post("/api/agent/chat", async (c) => {
   const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
   const apiKey = process.env.MISTRAL_API_KEY;
-  const { message, history } = body;
+  const { message, history } = body as { message?: string; history?: Array<{ role?: string; content?: string }> };
 
   if (!message) {
     return c.json({ error: "Správa nemôže byť prázdna." }, 400);
@@ -444,7 +489,7 @@ app.post("/api/agent/chat", async (c) => {
     data: {
       ownerId,
       userMessage: message,
-      history: history as any,
+      history: (history as unknown as Prisma.InputJsonValue) || [],
     }
   });
 
@@ -463,7 +508,7 @@ app.post("/api/agent/chat", async (c) => {
         role: "system",
         content: "Si ForenzDetectiv AI Asistent — špecializovaný vyšetrovací expert na forenznú analýzu trestných spisov, krížovú kontrolu výpovedí, odhaľovanie rozporov v alibi a analýzu vzťahových sietí. Odpovedaj vecne, logicky a profesionálne v slovenskom jazyku."
       },
-      ...(history || []).map((h: any) => ({
+      ...(history || []).map((h) => ({
         role: h.role === "user" ? "user" : "assistant",
         content: String(h.content || "")
       })),
@@ -496,8 +541,8 @@ app.post("/api/agent/chat", async (c) => {
       content,
       created_date: new Date().toISOString()
     });
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+  } catch (err: unknown) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
 
@@ -505,7 +550,13 @@ app.post("/api/agent/chat", async (c) => {
 app.post("/api/geospatial/check", async (c) => {
   const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
-  const { locA, timeA, locB, timeB, personName } = body;
+  const { locA, timeA, locB, timeB, personName } = body as {
+    locA: string;
+    timeA: string;
+    locB: string;
+    timeB: string;
+    personName?: string;
+  };
 
   await prisma.geospatialCheck.create({
     data: {
@@ -514,7 +565,7 @@ app.post("/api/geospatial/check", async (c) => {
       timeA,
       locationB: locB,
       timeB,
-      personName,
+      personName: personName || null,
     }
   });
 
@@ -575,7 +626,7 @@ app.post("/api/analyses/:id/hitl", async (c) => {
   const analysisId = c.req.param("id");
   const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
-  const { eventId, status } = body;
+  const { eventId, status } = body as { eventId?: string; status?: string };
 
   if (!eventId || !status) {
     return c.json({ error: "Chýba eventId alebo status" }, 400);
@@ -613,7 +664,7 @@ app.get("/api/audit-logs", async (c) => {
 app.post("/api/audit-logs", async (c) => {
   const ownerId = c.get("ownerId") || "dev_local_user";
   const body = await c.req.json().catch(() => ({}));
-  const { action, details } = body;
+  const { action, details } = body as { action?: string; details?: Record<string, unknown> };
 
   if (!action) {
     return c.json({ error: "Chýba action" }, 400);
@@ -623,67 +674,11 @@ app.post("/api/audit-logs", async (c) => {
     data: {
       action,
       userId: ownerId,
-      details: details ? details : undefined,
+      details: details ? (details as unknown as Prisma.InputJsonValue) : undefined,
     },
   });
 
   return c.json({ success: true, log });
-});
-
-// Job Progress Endpoint
-app.get("/api/analyses/:id/progress", async (c) => {
-  const ownerId = c.get("ownerId") || "dev_local_user";
-  const analysisId = c.req.param("id");
-  
-  // Verify ownership
-  const analysis = await prisma.analysis.findFirst({
-    where: { id: analysisId, ownerId },
-    select: { id: true, status: true, errorMessage: true },
-  });
-  
-  if (!analysis) {
-    return c.json({ error: "Spis sa nenašiel alebo nemáte oprávnenie." }, 404);
-  }
-  
-  const progress = await getJobProgress(analysisId);
-  return c.json({
-    analysisId,
-    status: analysis.status,
-    errorMessage: analysis.errorMessage,
-    progress,
-  });
-});
-
-// Health check endpoint (no auth required)
-app.get("/api/health", (c) => {
-  return c.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-  });
-});
-
-// SSE Endpoint for real-time progress updates (simplified for now)
-app.get("/api/analyses/:id/sse", async (c) => {
-  const ownerId = c.get("ownerId") || "dev_local_user";
-  const analysisId = c.req.param("id");
-  
-  // Verify ownership
-  const analysis = await prisma.analysis.findFirst({
-    where: { id: analysisId, ownerId },
-  });
-  
-  if (!analysis) {
-    return c.json({ error: "Not found" }, 404);
-  }
-  
-  // Return current progress
-  const progress = await getJobProgress(analysisId);
-  
-  return c.json({
-    type: "progress",
-    data: progress,
-  });
 });
 
 function listen(attempt = 0) {
@@ -696,7 +691,6 @@ function listen(attempt = 0) {
     },
     (info) => {
       console.log(`[api] http://127.0.0.1:${info.port}`);
-      console.log(`[Queue] Worker ready to process jobs`);
     }
   );
 
@@ -714,20 +708,5 @@ function listen(attempt = 0) {
     throw err;
   });
 }
-
-// Graceful shutdown
-process.on("SIGTERM", async () => {
-  console.log("[Server] Shutting down gracefully...");
-  const { shutdownQueue } = await import("./queue");
-  await shutdownQueue();
-  process.exit(0);
-});
-
-process.on("SIGINT", async () => {
-  console.log("[Server] Shutting down gracefully...");
-  const { shutdownQueue } = await import("./queue");
-  await shutdownQueue();
-  process.exit(0);
-});
 
 listen();

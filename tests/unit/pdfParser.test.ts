@@ -15,20 +15,22 @@ describe("pdfParser", () => {
       expect(chunks.length).toBe(3);
       expect(chunks[0].length).toBe(100000);
       expect(chunks[1].length).toBe(100000);
-      expect(chunks[2].length).toBe(50000);
+      expect(chunks[2].length).toBe(70000);
     });
 
     it("should maintain overlap between chunks for context continuity", () => {
       const text = "0123456789".repeat(20000); // 200,000 characters
       const chunks = chunkText(text, 100000, 10000);
       
-      expect(chunks.length).toBe(2);
+      expect(chunks.length).toBe(3);
       
       // First chunk: 0-100000
       expect(chunks[0]).toBe(text.slice(0, 100000));
       
-      // Second chunk should start at 90000 (100000 - 10000 overlap)
-      expect(chunks[1]).toBe(text.slice(90000));
+      // Second chunk should start at 90000 (100000 - 10000 overlap) and end at 190000
+      expect(chunks[1]).toBe(text.slice(90000, 190000));
+      // Third chunk should start at 180000 (190000 - 10000 overlap)
+      expect(chunks[2]).toBe(text.slice(180000));
     });
 
     it("should handle empty text", () => {

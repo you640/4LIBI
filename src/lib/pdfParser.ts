@@ -93,6 +93,7 @@ export function chunkText(text: string, maxChars: number = 120000, overlap: numb
  * @deprecated Použite chunkDocument z documentChunker.ts pre inteligentné spracovanie bez orezávania.
  */
 export function truncateText(text: string, maxChars?: number): string {
+  console.warn("[CRITICAL] truncateText() is DEPRECATED and should not be used. Use chunkText() instead!");
   if (!maxChars || text.length <= maxChars) return text;
   return text.slice(0, maxChars);
 }
