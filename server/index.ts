@@ -136,9 +136,6 @@ app.use(
   })
 );
 
-// Body size limit for file uploads (600MB = 20 files * 25MB + buffer)
-app.use("/api/*", bodyLimit("600mb"));
-
 app.use("/api/*", rateLimitMiddleware(60, 60 * 1000));
 app.use("/api/*", authMiddleware);
 
