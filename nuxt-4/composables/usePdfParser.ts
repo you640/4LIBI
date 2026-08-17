@@ -7,7 +7,7 @@ export function usePdfParser() {
 
     // Nastav workerSrc pre prehliadač
     if (typeof window !== 'undefined') {
-      // @ts-ignore — workerSrc pre prehliadač
+      // @ts-expect-error — workerSrc pre prehliadač
       pdfjsLib.GlobalWorkerOptions.workerSrc = (
         await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
       ).default
