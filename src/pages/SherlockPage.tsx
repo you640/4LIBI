@@ -4,6 +4,7 @@ import { SherlockAnalyzer } from "../components/sherlock/SherlockAnalyzer";
 import { SherlockResults } from "../components/sherlock/SherlockResults";
 import { DEMO_ANALYSIS, type Analysis } from "../types";
 import { ArrowLeftIcon } from "../components/Icons";
+import { analyzeMultipleFiles } from "../lib/sherlockAnalyze";
 import {
   trackDemoLaunched,
   trackCaseCreated,
@@ -29,22 +30,19 @@ export function SherlockPage() {
     }
   }, [showDemo]);
 
+  // === DEMO analýza (iba pre demo CTA — označené ako isDemo: true) ===
   const runDemoAnalysis = () => {
     setIsAnalyzing(true);
     setError(null);
 
-    // S3.1 — track demo_launched
     trackDemoLaunched({ source: "home_cta" });
-
-    // S1.5 — audit log
     auditCaseCreate({ fileCount: 1, source: "demo" });
 
-    // Simulácia analýzy (1.5s podľa S2.2.1)
+    // Simulácia 1.5s (demo nepotrebuje reálny API call)
     setTimeout(() => {
       setAnalysis(DEMO_ANALYSIS);
       setIsAnalyzing(false);
 
-      // S1.4 — track contradiction_detected (na demo s isDemo: true)
       const contradictionCount = DEMO_ANALYSIS.timeline.filter((e) =>
         e.tags.includes("rozpor")
       ).length;
@@ -59,44 +57,42 @@ export function SherlockPage() {
     }, 1500);
   };
 
-  const handleAnalyze = async () => {
+  // === REÁLNA analýza — Mistral API naostro ===
+  const handleAnalyze = async (files: File[]) => {
     setIsAnalyzing(true);
     setError(null);
 
-    // S3.1 — track analysis_started + case_created
-    trackAnalysisStarted({ fileCount: 1, source: tab });
-    trackCaseCreated({ fileCount: 1, source: tab });
-    auditCaseCreate({ fileCount: 1, source: tab });
+    trackAnalysisStarted({ fileCount: files.length, source: tab });
+    trackCaseCreated({ fileCount: files.length, source: tab });
+    auditCaseCreate({ fileCount: files.length, source: tab });
 
     try {
-      // Reálny backend call cez Convex (Issue #10 — S4.2)
-      // Keďže ešte nie je pripojený Convex client, použijeme fallback na demo
-      // TODO: const analysisId = await analyze({ fileIds: selectedFileIds });
-      // TODO: const result = await getMyAnalysis({ analysisId });
+      // Reálny Mistral API call — PDF → text → LLM → JSON
+      const result = await analyzeMultipleFiles(files);
+      setAnalysis(result);
 
-      // Fallback: demo analýza (do pripojenia Convex client)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setAnalysis(DEMO_ANALYSIS);
-
-      // Track contradiction_detected
-      const contradictionCount = DEMO_ANALYSIS.timeline.filter((e) =>
+      // Track contradiction_detected z reálnej analýzy
+      const contradictionCount = result.timeline.filter((e) =>
         e.tags.includes("rozpor")
       ).length;
       if (contradictionCount > 0) {
+        const hasAlibiConflict = result.timeline.some((e) =>
+          e.tags.includes("alibi")
+        );
         trackContradictionDetected({
           count: contradictionCount,
-          hasAlibiConflict: true,
-          caseId: "upload-fallback",
+          hasAlibiConflict,
+          caseId: result.metadata.document_name,
           isDemo: false,
         });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Neznáma chyba";
+      const message = err instanceof Error ? err.message : "Neznáma chyba pri analýze";
       setError(message);
       trackErrorOccurred({
         errorType: "analysis_failed",
         errorMessage: message,
-        context: "sherlock_analyze",
+        context: "sherlock_analyze_mistral",
       });
     } finally {
       setIsAnalyzing(false);
