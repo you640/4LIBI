@@ -1,4 +1,4 @@
-// === Sherlock AI Analyzer — typy (Issue #13, S4.5) ===
+// === Sherlock AI & ForenzDetectiv — kompletné typy ===
 
 export interface AnalysisMetadata {
   document_name: string;
@@ -9,19 +9,32 @@ export interface AnalysisMetadata {
 
 export type PersonRole =
   | "obvinený"
+  | "podozrivý"
   | "svedok"
   | "obete"
+  | "obeť"
+  | "alibi"
   | "policajt"
   | "advokat"
   | "sudca"
   | "ine";
 
+export type PersonType = 'podozrivý' | 'svedok' | 'obeť' | 'alibi';
+
 export interface Person {
   id: string;
   name: string;
   role: string;
+  type?: PersonType;
   description: string | null;
+  details?: string;
   aliases?: string[];
+  document_id?: string;
+  document_title?: string;
+  pageRankScore?: number;
+  degree?: number;
+  isKeyHub?: boolean;
+  nodeRadius?: number;
 }
 
 export type EvidenceType =
@@ -62,12 +75,107 @@ export interface TimelineEvent {
   approximate: boolean;
 }
 
+export type ContradictionType =
+  | 'time_conflict'
+  | 'location_conflict'
+  | 'location_time_conflict'
+  | 'factual_conflict'
+  | 'identity_conflict'
+  | 'event_participation_conflict';
+
+export type Severity = 'critical' | 'high' | 'medium' | 'low';
+export type ContradictionStatus = 'possible' | 'confirmed' | 'dismissed';
+
+export interface ForensicClaim {
+  id: string;
+  document_id?: string;
+  document_title?: string;
+  subject: string;
+  predicate: string;
+  object: string;
+  event_date?: string;
+  event_time?: string;
+  approximate_time?: boolean;
+  time_start?: string;
+  time_end?: string;
+  location?: string;
+  confidence: number;
+  source_quote?: string;
+}
+
+export interface Contradiction {
+  id: string;
+  claim_a_id?: string;
+  claim_b_id?: string;
+  document_a_id?: string;
+  document_b_id?: string;
+  entity_ref?: string;
+  type: ContradictionType;
+  severity: Severity;
+  confidence: number;
+  explanation?: string;
+  status: ContradictionStatus;
+  document_id?: string;
+  document_title?: string;
+}
+
+export interface GeoLocation {
+  lat: number;
+  lng: number;
+}
+
+export interface TravelFeasibilityResult {
+  isFeasible: boolean;
+  distanceKm: number;
+  travelMinutesAvailable: number;
+  minTravelMinutesRequired: number;
+  requiredSpeedKmh: number;
+  severity: 'normal' | 'high' | 'critical';
+  explanation: string;
+  locationA: string;
+  locationB: string;
+}
+
+export interface CrossExamQuestion {
+  id: string;
+  question: string;
+  rationale: string;
+  targetPerson: string;
+  contradictionRef?: string;
+  citation: {
+    documentTitle: string;
+    passage: string;
+    page?: number | null;
+    line?: number | null;
+  };
+  suggestedFollowUps: string[];
+}
+
+export interface ForenzDocument {
+  id: string;
+  title: string;
+  file_name?: string;
+  image_url?: string;
+  status: 'pending' | 'analyzing' | 'done' | 'error';
+  error?: string;
+  summary?: string;
+  person_count: number;
+  relationship_count: number;
+  red_flag_count: number;
+  claims?: ForensicClaim[];
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Analysis {
   metadata: AnalysisMetadata;
   persons: Person[];
   evidence: Evidence[];
   relationships: Relationship[];
   timeline: TimelineEvent[];
+  claims?: ForensicClaim[];
+  contradictions?: Contradiction[];
+  red_flags?: string[];
 }
 
 // Demo dáta (BA-KE alibi) pre aha moment
@@ -83,18 +191,21 @@ export const DEMO_ANALYSIS: Analysis = {
       id: "P001",
       name: "Ján Novák",
       role: "obvinený",
+      type: "podozrivý",
       description: "Nar. 1985, obvinený z krádeže v banke. Tvrdí, že bol v Košiciach.",
     },
     {
       id: "P002",
       name: "Petra Svobodová",
       role: "svedkyňa",
+      type: "svedok",
       description: "Pokladníčka v banke. Videla obvineného odchádzať.",
     },
     {
       id: "P003",
       name: "Marek Horváth",
       role: "svedok",
+      type: "alibi",
       description: "Kolega obvineného. Potvrdzuje alibi — boli spolu v Košiciach.",
     },
   ],
