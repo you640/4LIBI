@@ -20,7 +20,7 @@ export async function extractTextFromPdf(
   const loadingTask = pdfjsLib.getDocument({
     data: pdfBuffer,
     // disableWorker nie je v typoch, ale funguje v Node.js / Convex
-    ...(typeof window === "undefined" ? ({ disableWorker: true } as any) : {}),
+    ...(typeof window === "undefined" ? ({ disableWorker: true } as unknown as Record<string, unknown>) : {}),
   });
 
   const pdf = await loadingTask.promise;
@@ -32,7 +32,12 @@ export async function extractTextFromPdf(
 
     // Spoj text itemov s medzerami
     const pageText = textContent.items
-      .map((item: any) => item.str)
+      .map((item: unknown) => {
+        if (item && typeof item === "object" && "str" in item) {
+          return String((item as { str: unknown }).str || "");
+        }
+        return "";
+      })
       .join(" ");
 
     fullText += `--- STRANA ${i} ---\n` + pageText + "\n\n";
@@ -85,10 +90,9 @@ export function chunkText(text: string, maxChars: number = 120000, overlap: numb
 
 /**
  * Zastaraná funkcia - NEPOUŽÍVAŇ
- * @deprecated Použite chunkText() namiesto toho, aby sa ned strácalo text z dokumentov!
+ * @deprecated Použite chunkDocument z documentChunker.ts pre inteligentné spracovanie bez orezávania.
  */
 export function truncateText(text: string, maxChars?: number): string {
-  console.warn("[CRITICAL] truncateText() užívate na dokumentoch > 30 strán? POUŽITE chunkText()!");
   if (!maxChars || text.length <= maxChars) return text;
   return text.slice(0, maxChars);
 }
