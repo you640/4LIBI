@@ -137,7 +137,7 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
       where: { id: analysisId },
       data: {
         status: "ready",
-        data: data as any,
+        data: data as unknown as import("../generated/client").Prisma.InputJsonValue,
         name: data.metadata?.document_name || `Analýza ${new Date().toLocaleDateString()}`,
         updatedAt: new Date(),
       },
@@ -159,8 +159,8 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
     });
     
     return { success: true, analysisId };
-  } catch (error: any) {
-    const errorMessage = error.message || String(error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     
     // Update analysis status to error
     await prisma.analysis.update({

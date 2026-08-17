@@ -68,22 +68,22 @@ export async function createUser(email: string, passwordHash?: string) {
 export async function logAuditAction(
   ownerId: string,
   action: string,
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ) {
   return withDbRetry(() =>
     prisma.auditLog.create({
       data: {
         action,
         userId: ownerId || null,
-        details: sanitizeAuditDetails(details),
+        details: sanitizeAuditDetails(details) as unknown as import("../generated/client").Prisma.InputJsonValue,
       },
     })
   );
 }
 
-function sanitizeAuditDetails(details: Record<string, any> | undefined): Record<string, any> {
+function sanitizeAuditDetails(details: Record<string, unknown> | undefined): Record<string, unknown> {
   if (!details) return {};
-  const sanitized: Record<string, any> = {};
+  const sanitized: Record<string, unknown> = {};
   const sensitiveKeys = ["password", "token", "apikey", "secret", "email", "phone"];
   
   for (const [key, value] of Object.entries(details)) {
