@@ -45,8 +45,8 @@ export function initAnalytics() {
 }
 
 // PII sanitizácia — odstráni email, IP, osobné údaje (S3.1.4)
-function sanitizeProperties(properties: Record<string, any>): Record<string, any> {
-  const sanitized: Record<string, any> = {};
+function sanitizeProperties(properties: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
   const sensitiveKeys = ["email", "ip", "phone", "name", "address", "password"];
 
   for (const [key, value] of Object.entries(properties)) {
@@ -65,7 +65,7 @@ function sanitizeProperties(properties: Record<string, any>): Record<string, any
 // Hlavná track funkcia — fallback na console.log (S3.1.5, S3.1.6)
 export function trackEvent(
   event: string,
-  properties: Record<string, any> = {}
+  properties: Record<string, unknown> = {}
 ): void {
   const safeProps = sanitizeProperties(properties);
 
@@ -77,7 +77,7 @@ export function trackEvent(
 }
 
 // Identifikácia používateľa
-export function identifyUser(userId: string, properties?: Record<string, any>) {
+export function identifyUser(userId: string, properties?: Record<string, unknown>) {
   if (initialized) {
     posthog.identify(userId, properties ? sanitizeProperties(properties) : undefined);
   }

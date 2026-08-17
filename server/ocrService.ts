@@ -12,6 +12,14 @@ export interface OCRResult {
   processingTimeMs: number;
 }
 
+interface MistralChatResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+}
+
 export class OCRService {
   private apiKey: string;
   private model: string;
@@ -28,7 +36,7 @@ export class OCRService {
     const dataUri = base64Image.startsWith('data:') ? base64Image : `data:${mimeType};base64,${base64Image}`;
 
     let attempts = 0;
-    let lastError: any = null;
+    let lastError: Error | null = null;
 
     while (attempts < this.maxRetries) {
       try {
@@ -65,7 +73,7 @@ export class OCRService {
           throw new Error(`Mistral OCR response error ${response.status}: ${errText}`);
         }
 
-        const data: any = await response.json();
+        const data = (await response.json()) as MistralChatResponse;
         const rawText = data?.choices?.[0]?.message?.content || '';
         const cleanedText = this.cleanTextForSearch(rawText);
 
@@ -76,8 +84,8 @@ export class OCRService {
           confidence: 0.95,
           processingTimeMs: Date.now() - startTime
         };
-      } catch (err: any) {
-        lastError = err;
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err : new Error(String(err));
         if (attempts < this.maxRetries) {
           await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempts)));
         }

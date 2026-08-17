@@ -136,6 +136,9 @@ app.use(
   })
 );
 
+// Body size limit for file uploads (600MB = 20 files * 25MB + buffer)
+app.use("/api/*", bodyLimit("600mb"));
+
 app.use("/api/*", rateLimitMiddleware(60, 60 * 1000));
 app.use("/api/*", authMiddleware);
 
@@ -688,8 +691,6 @@ function listen(attempt = 0) {
       fetch: app.fetch,
       port: PORT,
       hostname: "127.0.0.1",
-      // Increase body size limit for file uploads (25MB * 20 files + buffer)
-      maxRequestBodySize: 600 * 1024 * 1024, // 600MB
     },
     (info) => {
       console.log(`[api] http://127.0.0.1:${info.port}`);

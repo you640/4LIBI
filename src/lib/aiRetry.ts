@@ -5,9 +5,9 @@
 
 export class AiRetryError extends Error {
   attempts: number;
-  originalError: any;
+  originalError: unknown;
 
-  constructor(message: string, attempts: number, originalError: any) {
+  constructor(message: string, attempts: number, originalError: unknown) {
     super(message);
     this.name = 'AiRetryError';
     this.attempts = attempts;
@@ -15,15 +15,29 @@ export class AiRetryError extends Error {
   }
 }
 
-export function isRetryableError(error: any): boolean {
+export function isRetryableError(error: unknown): boolean {
   if (!error) return false;
 
-  const status = error.status || error.statusCode || error?.response?.status;
+  let status: number | undefined;
+  if (typeof error === 'object') {
+    if ('status' in error && typeof (error as { status: unknown }).status === 'number') {
+      status = (error as { status: number }).status;
+    } else if ('statusCode' in error && typeof (error as { statusCode: unknown }).statusCode === 'number') {
+      status = (error as { statusCode: number }).statusCode;
+    } else if (
+      'response' in error &&
+      typeof (error as { response?: { status?: unknown } }).response === 'object' &&
+      typeof (error as { response?: { status?: unknown } }).response?.status === 'number'
+    ) {
+      status = (error as { response?: { status?: number } }).response?.status;
+    }
+  }
+
   if (status === 429 || status === 503 || status === 502 || status === 504) {
     return true;
   }
 
-  const msg = String(error.message || error).toLowerCase();
+  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return (
     msg.includes('rate limit') ||
     msg.includes('429') ||
@@ -41,7 +55,7 @@ export interface RetryOptions {
   initialDelayMs?: number;
   maxDelayMs?: number;
   backoffFactor?: number;
-  onRetry?: (info: { attempt: number; maxRetries: number; delayMs: number; error: any }) => void;
+  onRetry?: (info: { attempt: number; maxRetries: number; delayMs: number; error: unknown }) => void;
 }
 
 export async function withAiRetry<T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
@@ -53,12 +67,12 @@ export async function withAiRetry<T>(operation: () => Promise<T>, options: Retry
     onRetry
   } = options;
 
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
       return await operation();
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
 
       if (attempt > maxRetries || !isRetryableError(error)) {
@@ -82,8 +96,9 @@ export async function withAiRetry<T>(operation: () => Promise<T>, options: Retry
     }
   }
 
+  const errorMsg = lastError instanceof Error ? lastError.message : String(lastError || 'Neznáma chyba');
   throw new AiRetryError(
-    `AI operácia zlyhala po ${maxRetries} pokusoch: ${lastError?.message || 'Neznáma chyba'}`,
+    `AI operácia zlyhala po ${maxRetries} pokusoch: ${errorMsg}`,
     maxRetries,
     lastError
   );

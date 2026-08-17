@@ -8,7 +8,7 @@ export const RELATIONSHIP_TYPES = {
   KONTAKT: 'kontakt'
 };
 
-export function classifyRelationship(edge: any) {
+export function classifyRelationship(edge?: { label?: string; type?: string; description?: string } | null) {
   const label = String(edge?.label || edge?.type || '');
   const desc = String(edge?.description || '');
   const raw = `${label} ${desc}`;
@@ -73,11 +73,35 @@ export function classifyRelationship(edge: any) {
   };
 }
 
+export interface GraphNodeRecord {
+  id: string;
+  name?: string;
+  label?: string;
+  role?: string;
+  type?: string;
+  degree?: number;
+  pageRankScore?: number;
+  isKeyHub?: boolean;
+  nodeRadius?: number;
+  [key: string]: unknown;
+}
+
+export interface GraphEdgeRecord {
+  person1_id?: string;
+  person2_id?: string;
+  source?: string | { id?: string };
+  target?: string | { id?: string };
+  [key: string]: unknown;
+}
+
 // Výpočet sieťovej centrality (Degree a zjednodušený PageRank) bez externých závislostí
-export function calculateGraphMetrics(persons: any[] = [], edges: any[] = []) {
+export function calculateGraphMetrics(
+  persons: GraphNodeRecord[] = [],
+  edges: GraphEdgeRecord[] = []
+) {
   if (!persons.length) return { nodesWithMetrics: [], topSuspects: [] };
 
-  const nodeMap = new Map<string, any>();
+  const nodeMap = new Map<string, GraphNodeRecord>();
   const neighbors = new Map<string, Set<string>>();
 
   for (const p of persons) {
@@ -87,8 +111,8 @@ export function calculateGraphMetrics(persons: any[] = [], edges: any[] = []) {
   }
 
   for (const e of edges) {
-    const src = String(e.person1_id || e.source?.id || e.source || '');
-    const tgt = String(e.person2_id || e.target?.id || e.target || '');
+    const src = String(e.person1_id || (typeof e.source === 'object' ? e.source?.id : e.source) || '');
+    const tgt = String(e.person2_id || (typeof e.target === 'object' ? e.target?.id : e.target) || '');
     if (src && tgt && nodeMap.has(src) && nodeMap.has(tgt) && src !== tgt) {
       neighbors.get(src)!.add(tgt);
       neighbors.get(tgt)!.add(src);
@@ -125,12 +149,12 @@ export function calculateGraphMetrics(persons: any[] = [], edges: any[] = []) {
 
   const nodesWithMetrics = Array.from(nodeMap.values()).map((n) => {
     const pr = scores[n.id] || 0;
-    const isKeyHub = n.degree >= 3 || pr > 1.5 / N;
+    const isKeyHub = (n.degree || 0) >= 3 || pr > 1.5 / N;
     return {
       ...n,
       pageRankScore: Number(pr.toFixed(4)),
       isKeyHub,
-      nodeRadius: Math.max(12, Math.min(32, 14 + n.degree * 3))
+      nodeRadius: Math.max(12, Math.min(32, 14 + (n.degree || 0) * 3))
     };
   });
 

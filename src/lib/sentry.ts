@@ -32,7 +32,7 @@ export function initSentry() {
   console.log(`[Sentry] Inicializované (env: ${environment})`);
 }
 
-export function captureException(error: Error | unknown, context?: Record<string, any>) {
+export function captureException(error: Error | unknown, context?: Record<string, unknown>) {
   if (!initialized) {
     console.error("[Sentry Fallback]", error, context);
     return;

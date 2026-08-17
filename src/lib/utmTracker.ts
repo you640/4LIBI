@@ -46,7 +46,7 @@ export function initUtmTracking(): void {
 }
 
 // S3.2.5 — Pripoj UTM dáta k PostHog event properties
-export function withUtm(properties: Record<string, any>): Record<string, any> {
+export function withUtm(properties: Record<string, unknown>): Record<string, unknown> {
   const utm = getUtmData();
   return { ...properties, ...utm };
 }
