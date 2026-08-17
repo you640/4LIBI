@@ -144,7 +144,7 @@ export function evaluateTravelFeasibility(
     severity = 'high';
   }
 
-  let explanation = '';
+  let explanation: string;
   if (!isFeasible) {
     explanation = `Fyzikálne nemožný presun: ${personName} by musel(a) prekonať vzdialenosť ${distanceKm} km medzi "${locA}" (${timeA}) a "${locB}" (${timeB}) za ${diffMinutes} minút (potrebná priemerná rýchlosť ${requiredSpeedKmh} km/h). Minimálny realistický čas jazdy je ${minRequiredMinutes} minút.`;
   } else {

@@ -21,11 +21,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Lint
         run: npm run lint
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
+
+      - name: Run Tests (85 unit/integration/E2E tests)
+        run: npm test
 
       - name: Build
         run: npm run build

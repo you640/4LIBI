@@ -37,8 +37,8 @@ export function buildLocalCrossExamQuestions(
     const person = c.entity_ref || 'Svedok';
     const explanation = c.explanation || 'Zistený časovo-priestorový rozpor.';
 
-    let qText = '';
-    let rationale = '';
+    let qText: string;
+    let rationale: string;
 
     if (mode === 'aggressive') {
       qText = `Ako vysvetlíte, že vo vašej výpovedi tvrdíte pobyt na uvedenom mieste, hoci dôkazy a svedectvá jednoznačne preukazujú: ${explanation}?`;

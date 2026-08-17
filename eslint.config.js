@@ -11,6 +11,7 @@ export default tseslint.config(
       "node_modules/",
       "tsconfig.tsbuildinfo",
       "nuxt-4/",
+      "scripts/",
     ],
   },
   js.configs.recommended,
@@ -26,9 +27,7 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      // any je akceptovatelne pre JSON data z LLM a audit log
       "@typescript-eslint/no-explicit-any": "warn",
-      // Povol pristup k premennym v closures (useEffect patterns)
       "react-hooks/immutability": "off",
       "preserve-caught-error": "off",
       "react-hooks/exhaustive-deps": "warn",
