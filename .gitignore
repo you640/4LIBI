@@ -31,3 +31,5 @@ npm-debug.log*
 
 # Convex
 .convex/
+
+.vercel

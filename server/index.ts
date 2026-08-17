@@ -688,6 +688,8 @@ function listen(attempt = 0) {
       fetch: app.fetch,
       port: PORT,
       hostname: "127.0.0.1",
+      // Increase body size limit for file uploads (25MB * 20 files + buffer)
+      maxRequestBodySize: 600 * 1024 * 1024, // 600MB
     },
     (info) => {
       console.log(`[api] http://127.0.0.1:${info.port}`);
