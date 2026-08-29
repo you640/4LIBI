@@ -10,8 +10,10 @@ RUN npm ci
 
 COPY prisma ./prisma
 COPY server ./server
+COPY src ./src
 COPY scripts ./scripts
 COPY tsconfig.json tsconfig.node.json ./
+COPY railway.toml ./
 
 RUN npx prisma generate
 

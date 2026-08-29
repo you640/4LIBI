@@ -67,3 +67,6 @@ docs/**/*.pdf
 
 # --- Legacy (Convex — no longer used) ---
 .convex/
+
+.railway-beta-api-key.txt
+.railway-status-tmp.json
