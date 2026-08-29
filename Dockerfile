@@ -13,7 +13,8 @@ COPY server ./server
 COPY src ./src
 COPY scripts ./scripts
 COPY tsconfig.json tsconfig.node.json ./
-COPY railway.toml ./
+COPY prisma.config.ts ./
+COPY railway.toml railway.json ./
 
 RUN npx prisma generate
 
