@@ -1,4 +1,5 @@
 # ForenzDetectiv API — production image (Railway / Render / Fly.io)
+# wire-up-marker: 2026-08-29-prisma-config-v3
 FROM node:22-alpine
 
 RUN apk add --no-cache openssl
@@ -14,7 +15,6 @@ COPY src ./src
 COPY scripts ./scripts
 COPY tsconfig.json tsconfig.node.json ./
 COPY prisma.config.ts ./
-COPY railway.toml railway.json ./
 
 RUN npx prisma generate
 
