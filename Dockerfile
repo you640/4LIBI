@@ -26,4 +26,4 @@ ENV HOST=0.0.0.0
 EXPOSE 5176
 
 # Migrations + API (Postgres/Redis via env at runtime)
-CMD ["sh", "-c", "npx prisma migrate deploy && npx tsx server/index.ts"]
+CMD ["sh", "-c", "if [ -z \"$DATABASE_URL\" ]; then echo '[FATAL] DATABASE_URL is empty in container'; env | grep -E '^(PG|DATABASE|RAILWAY)' | sed 's/=.*/=***/'; exit 1; fi; npx prisma migrate deploy && npx tsx server/index.ts"]
