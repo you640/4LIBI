@@ -23,7 +23,9 @@ RUN mkdir -p uploads
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
+# Railway injects PORT; default 8080 matches typical public proxy targetPort.
+ENV PORT=8080
 
-EXPOSE 5176
+EXPOSE 8080
 
-CMD ["sh", "-c", "if [ -z \"$DATABASE_URL\" ]; then echo '[FATAL] DATABASE_URL is empty in container'; env | grep -E '^(PG|DATABASE|RAILWAY)' | sed 's/=.*/=***/'; exit 1; fi; npx prisma migrate deploy && npx tsx server/index.ts"]
+CMD ["sh", "-c", "set -e; if [ -z \"$DATABASE_URL\" ]; then echo '[FATAL] DATABASE_URL is empty in container'; exit 1; fi; echo \"[boot] PORT=$PORT HOST=$HOST\"; npx prisma migrate deploy; echo '[boot] migrate_ok'; exec ./node_modules/.bin/tsx server/index.ts"]

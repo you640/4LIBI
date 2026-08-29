@@ -840,7 +840,7 @@ function validateProductionEnv(): void {
 
 function listen(attempt = 0) {
   validateProductionEnv();
-  startQueueProcessing();
+  // Bind HTTP first so platform healthchecks pass even if Redis/worker init is slow.
   const server = serve(
     {
       fetch: app.fetch,
@@ -849,6 +849,11 @@ function listen(attempt = 0) {
     },
     (info) => {
       console.log(`[api] http://${HOST}:${info.port}`);
+      try {
+        startQueueProcessing();
+      } catch (err) {
+        console.error("[Queue] Failed to start worker (API still serving):", err);
+      }
     }
   );
 
