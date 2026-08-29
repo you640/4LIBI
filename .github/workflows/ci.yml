@@ -9,6 +9,9 @@ on:
 jobs:
   test-lint-build:
     runs-on: ubuntu-latest
+    env:
+      # Dummy URL for `prisma generate` only (no DB connection in CI)
+      DATABASE_URL: postgresql://localhost:5432/test
 
     steps:
       - uses: actions/checkout@v4
