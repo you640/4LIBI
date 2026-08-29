@@ -1,8 +1,9 @@
 # ForenzDetectiv API — production image (Railway / Render / Fly.io)
-# wire-up-marker: 2026-08-29-prisma-config-v3
+# wire-up-marker: 2026-08-29-prisma-config-v4-cachebust
 FROM node:22-alpine
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl \
+  && echo "forenzdetectiv-cachebust-v4"
 
 WORKDIR /app
 
@@ -25,5 +26,4 @@ ENV HOST=0.0.0.0
 
 EXPOSE 5176
 
-# Migrations + API (Postgres/Redis via env at runtime)
 CMD ["sh", "-c", "if [ -z \"$DATABASE_URL\" ]; then echo '[FATAL] DATABASE_URL is empty in container'; env | grep -E '^(PG|DATABASE|RAILWAY)' | sed 's/=.*/=***/'; exit 1; fi; npx prisma migrate deploy && npx tsx server/index.ts"]
