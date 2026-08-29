@@ -45,7 +45,9 @@ export function M3NavBar({ onNeedCase }: M3NavBarProps) {
   };
 
   const onSpisyList =
-    location.pathname === "/spisy" || location.pathname === "/profil";
+    location.pathname === "/" ||
+    location.pathname === "/spisy" ||
+    location.pathname === "/profil";
 
   return (
     <nav className="m3-nav-bar" aria-label="Hlavná navigácia" data-testid="m3-nav-bar">

@@ -1,5 +1,24 @@
 import type { Analysis, TimelineEvent } from "../types";
 
+export function resolvePageFromText(text: string): number | undefined {
+  const pageMatch = text.match(/--- STRANA (\d+) ---/);
+  if (pageMatch) return parseInt(pageMatch[1], 10);
+
+  const contextMatch = text.match(/\[KONTEXT: ANALÝZA STRANY CCA (\d+)\]/);
+  if (contextMatch) return parseInt(contextMatch[1], 10);
+
+  return undefined;
+}
+
+export function resolveEventPage(
+  event: Pick<TimelineEvent, "page" | "source_text">
+): number | undefined {
+  if (typeof event.page === "number" && event.page > 0) {
+    return event.page;
+  }
+  return resolvePageFromText(event.source_text || "");
+}
+
 export function isContradiction(event: TimelineEvent): boolean {
   if (!event) return false;
 

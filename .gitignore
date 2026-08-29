@@ -1,35 +1,69 @@
-# Dependencies
+# ==========================================
+# ForenzDetectiv — .gitignore
+# ==========================================
+
+# --- Dependencies ---
 node_modules/
 
-# Build output
+# --- Build output ---
 dist/
+build/
+*.tsbuildinfo
 
-# Prisma generated client
+# --- Prisma generated client ---
 generated/
 
-# Uploaded case files
+# --- Uploaded case files (runtime) ---
 uploads/
+!uploads/.gitkeep
 
-# Environment
+# --- Environment & secrets ---
 .env
+.env.*
+!.env.example
+.env.backup
 .env.local
 .env.*.local
 
-# Editor
+# --- Test & coverage artifacts ---
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.vitest/
+
+# --- Archives & temp dumps ---
+tests.zip
+*.zip
+!public/**/*.zip
+
+# --- Deploy / hosting ---
+.vercel
+.railway
+
+# --- Editor & IDE ---
 .vscode/
 .idea/
 *.swp
 *.swo
+*.code-workspace
 
-# OS
+# --- OS ---
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Logs
+# --- Logs ---
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Convex
+# --- Sensitive local documents (test spisy, PDF) ---
+docs/*.pdf
+docs/**/*.pdf
+
+# --- Legacy (Convex — no longer used) ---
 .convex/
-
-.vercel

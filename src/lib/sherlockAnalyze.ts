@@ -1,35 +1,19 @@
-import { analyzeFilesFromBytes } from "./analyzeCore";
 import type { Analysis } from "../types";
 
-function requireApiKey(): string {
-  const apiKey = import.meta.env.VITE_MISTRAL_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Chýba VITE_MISTRAL_API_KEY — nastavte v .env súbore. Bez kľúča nie je možná reálna analýza."
-    );
-  }
-  return apiKey;
-}
-
-export async function analyzeDocument(file: File): Promise<Analysis> {
-  return analyzeFilesFromBytes(
-    [{ name: file.name, mime: file.type, bytes: await file.arrayBuffer() }],
-    requireApiKey()
+/**
+ * Browser-side Mistral is disabled. Keys stay on the Hono server
+ * (MISTRAL_API_KEY). Use analyzeViaApi() / POST /api/analyze.
+ */
+function rejectBrowserMistral(): never {
+  throw new Error(
+    "Mistral kľúč nie je dostupný v prehliadači. Analýza ide cez server (MISTRAL_API_KEY). API je nedostupné pre priame volanie z klienta."
   );
 }
 
-export async function analyzeMultipleFiles(files: File[]): Promise<Analysis> {
-  if (files.length === 0) {
-    throw new Error("Žiadne súbory na analýzu.");
-  }
+export async function analyzeDocument(_file: File): Promise<Analysis> {
+  rejectBrowserMistral();
+}
 
-  const docs = await Promise.all(
-    files.map(async (file) => ({
-      name: file.name,
-      mime: file.type,
-      bytes: await file.arrayBuffer(),
-    }))
-  );
-
-  return analyzeFilesFromBytes(docs, requireApiKey());
+export async function analyzeMultipleFiles(_files: File[]): Promise<Analysis> {
+  rejectBrowserMistral();
 }

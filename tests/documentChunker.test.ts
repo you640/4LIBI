@@ -8,7 +8,8 @@ describe("Document Chunker & Multi-Page RAG Synthesis", () => {
     const chunks = chunkDocument(text, { maxChunkChars: 1000, overlapChars: 100 });
 
     expect(chunks.length).toBe(1);
-    expect(chunks[0].text).toBe(text);
+    expect(chunks[0].text).toBe(`[KONTEXT: ANALÝZA STRANY CCA 1]\n${text}`);
+    expect(chunks[0].likelyPage).toBe(1);
     expect(chunks[0].totalChunks).toBe(1);
     expect(chunks[0].index).toBe(0);
   });
@@ -23,6 +24,8 @@ describe("Document Chunker & Multi-Page RAG Synthesis", () => {
     for (let i = 0; i < chunks.length; i++) {
       expect(chunks[i].index).toBe(i);
       expect(chunks[i].totalChunks).toBe(chunks.length);
+      expect(chunks[i].text).toContain("[KONTEXT: ANALÝZA STRANY CCA");
+      expect(chunks[i].likelyPage).toBeGreaterThanOrEqual(1);
       expect(chunks[i].text.length).toBeGreaterThan(0);
     }
   });
@@ -34,6 +37,17 @@ describe("Document Chunker & Multi-Page RAG Synthesis", () => {
 
     const chunks = chunkDocument(text, { maxChunkChars: 50, overlapChars: 10 });
     expect(chunks.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("pridá likelyPage a meta-prefix podľa značiek --- STRANA N ---", () => {
+    const text =
+      "--- STRANA 1 ---\nÚvod spisu.\n\n--- STRANA 2 ---\nDruhá strana s výpoveďou.\n\n--- STRANA 12 ---\nZáver.";
+    const chunks = chunkDocument(text, { maxChunkChars: 80, overlapChars: 10 });
+
+    expect(chunks.length).toBeGreaterThanOrEqual(2);
+    const last = chunks[chunks.length - 1];
+    expect(last.likelyPage).toBe(12);
+    expect(last.text).toContain("STRANY CCA 12");
   });
 
   it("vráti prázdne pole pre prázdny alebo biely text", () => {
@@ -150,5 +164,43 @@ describe("Document Chunker & Multi-Page RAG Synthesis", () => {
     const merged = mergeAnalysisResults([a1, a2], "Spis");
     expect(merged.evidence.length).toBe(1); // deduplikované podľa typu a obsahu
     expect(merged.relationships.length).toBe(1);
+  });
+
+  it("zachová page pri merge timeline a relationships", () => {
+    const a1: Analysis = {
+      metadata: { document_name: "Spis", language: "sk", page_count: 1, upload_date: "" },
+      persons: [],
+      evidence: [],
+      relationships: [
+        {
+          person1_id: "p1",
+          person2_id: "p2",
+          type: "kolega",
+          description: "popis",
+          evidence_supporting: [],
+          page: 3,
+        },
+      ],
+      timeline: [
+        {
+          id: "e1",
+          timestamp: "2026-08-17T10:00:00Z",
+          title: "Udalosť",
+          description: "",
+          location: null,
+          persons_involved: [],
+          evidence_links: [],
+          tags: ["rozpor"],
+          source_text: "citát",
+          confidence: 1,
+          approximate: false,
+          page: 12,
+        },
+      ],
+    };
+
+    const merged = mergeAnalysisResults([a1], "Spis");
+    expect(merged.timeline[0].page).toBe(12);
+    expect(merged.relationships[0].page).toBe(3);
   });
 });

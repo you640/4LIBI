@@ -59,6 +59,7 @@ export interface Relationship {
   type: string;
   description: string;
   evidence_supporting: string[];
+  page?: number;
 }
 
 export interface TimelineEvent {
@@ -73,6 +74,7 @@ export interface TimelineEvent {
   source_text: string;
   confidence: number; // 0-1
   approximate: boolean;
+  page?: number;
 }
 
 export type ContradictionType =
@@ -120,6 +122,7 @@ export interface Contradiction {
   status?: ContradictionStatus;
   document_id?: string;
   document_title?: string;
+  page?: number;
 }
 
 export interface GeoLocation {
@@ -284,6 +287,7 @@ export const DEMO_ANALYSIS: Analysis = {
       source_text: "Mýtny lístok na diaľnici D1, smer Bratislava → Košice, čas 13:40",
       confidence: 1.0,
       approximate: false,
+      page: 12,
     },
     {
       id: "T003",
@@ -297,6 +301,7 @@ export const DEMO_ANALYSIS: Analysis = {
       source_text: "Podľa kamerového systému bol Ján Novák v bance od 14:25 do 14:35.",
       confidence: 1.0,
       approximate: false,
+      page: 25,
     },
     {
       id: "T004",

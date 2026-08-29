@@ -5,10 +5,9 @@ import { readFile } from "node:fs/promises";
 import { prisma, logAuditAction } from "./prisma";
 import { analyzeFilesFromBytes } from "../src/lib/analyzeCore";
 
-// ============================================
-// REDIS CONNECTION
-// ============================================
 let redisConnection: IORedis | null = null;
+let analysisQueue: Queue<AnalysisJobData> | null = null;
+let worker: Worker<AnalysisJobData> | null = null;
 
 function getRedisConnection(): IORedis {
   if (!redisConnection) {
@@ -16,22 +15,19 @@ function getRedisConnection(): IORedis {
     redisConnection = new IORedis(redisUrl, {
       maxRetriesPerRequest: null,
       enableOfflineQueue: false,
+      lazyConnect: true,
     });
-    
+
     redisConnection.on("error", (err) => {
       console.error("[Redis] Error:", err);
     });
-    
+
     redisConnection.on("connect", () => {
       console.log("[Redis] Connected");
     });
   }
   return redisConnection;
 }
-
-// ============================================
-// JOB QUEUE DEFINITIONS
-// ============================================
 
 export interface AnalysisJobData {
   analysisId: string;
@@ -49,35 +45,33 @@ export interface JobProgress {
   totalFiles?: number;
 }
 
-// Create queues
-const analysisQueue = new Queue<AnalysisJobData>("analysis", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: true,
-    removeOnFail: false,
-  },
-});
+/** Privacy: wipe completed jobs immediately; failed jobs max 24h. */
+const DEFAULT_JOB_OPTIONS = {
+  attempts: 2,
+  backoff: { type: "exponential" as const, delay: 1000 },
+  removeOnComplete: { age: 0, count: 0 },
+  removeOnFail: { age: 24 * 3600, count: 100 },
+};
 
-// ============================================
-// JOB PROCESSOR (Worker)
-// ============================================
+function getAnalysisQueue(): Queue<AnalysisJobData> {
+  if (!analysisQueue) {
+    analysisQueue = new Queue<AnalysisJobData>("analysis", {
+      connection: getRedisConnection(),
+      defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    });
+  }
+  return analysisQueue;
+}
 
 async function processAnalysisJob(job: Job<AnalysisJobData>) {
   const { analysisId, ownerId, filePaths, apiKey } = job.data;
-  
+
   try {
-    // Update analysis status
     await prisma.analysis.update({
       where: { id: analysisId },
       data: { status: "processing", updatedAt: new Date() },
     });
-    
-    // Update progress
+
     await updateJobProgress(job, {
       step: "initializing",
       progress: 0,
@@ -85,13 +79,12 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
       totalFiles: filePaths.length,
       processedFiles: 0,
     });
-    
-    // Load all files
+
     const docs: { name: string; mime: string; bytes: ArrayBuffer }[] = [];
-    
+
     for (let i = 0; i < filePaths.length; i++) {
       const filePath = filePaths[i];
-      
+
       await updateJobProgress(job, {
         step: "loading_files",
         progress: (i / filePaths.length) * 30,
@@ -100,15 +93,18 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
         totalFiles: filePaths.length,
         processedFiles: i + 1,
       });
-      
+
       const fileBuffer = await readFile(filePath.path);
       docs.push({
         name: filePath.name,
         mime: filePath.mime,
-        bytes: fileBuffer.buffer as ArrayBuffer,
+        bytes: fileBuffer.buffer.slice(
+          fileBuffer.byteOffset,
+          fileBuffer.byteOffset + fileBuffer.byteLength
+        ) as ArrayBuffer,
       });
     }
-    
+
     await updateJobProgress(job, {
       step: "extracting_text",
       progress: 35,
@@ -116,23 +112,21 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
       totalFiles: filePaths.length,
       processedFiles: filePaths.length,
     });
-    
-    // Analyze files
+
     await updateJobProgress(job, {
       step: "analyzing",
       progress: 40,
       message: "Spúštam forenznú analýzu...",
     });
-    
+
     const data = await analyzeFilesFromBytes(docs, apiKey);
-    
+
     await updateJobProgress(job, {
       step: "analyzing",
       progress: 80,
       message: "Analýza prebieha...",
     });
-    
-    // Update analysis with results
+
     await prisma.analysis.update({
       where: { id: analysisId },
       data: {
@@ -142,14 +136,13 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
         updatedAt: new Date(),
       },
     });
-    
-    // Log success
+
     await logAuditAction(ownerId, "analysis_complete", {
       analysisId,
       fileCount: filePaths.length,
       status: "ready",
     });
-    
+
     await updateJobProgress(job, {
       step: "completed",
       progress: 100,
@@ -157,12 +150,11 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
       totalFiles: filePaths.length,
       processedFiles: filePaths.length,
     });
-    
+
     return { success: true, analysisId };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // Update analysis status to error
+
     await prisma.analysis.update({
       where: { id: analysisId },
       data: {
@@ -171,19 +163,18 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
         updatedAt: new Date(),
       },
     });
-    
-    // Log error
+
     await logAuditAction(ownerId, "analysis_error", {
       analysisId,
       error: errorMessage,
     });
-    
+
     await updateJobProgress(job, {
       step: "error",
       progress: 100,
       message: `Chyba: ${errorMessage}`,
     });
-    
+
     throw error;
   }
 }
@@ -193,83 +184,81 @@ async function updateJobProgress(job: Job, progress: JobProgress) {
   console.log(`[Job ${job.id}] ${progress.step}: ${progress.message} (${progress.progress}%)`);
 }
 
-// Create worker
-const worker = new Worker<AnalysisJobData>(
-  "analysis",
-  processAnalysisJob,
-  {
-    connection: getRedisConnection(),
-    concurrency: 2, // Process up to 2 jobs at once
-    limiter: {
-      max: 5, // Max 5 jobs per second
-      duration: 1000,
-    },
+function getWorker(): Worker<AnalysisJobData> {
+  if (!worker) {
+    worker = new Worker<AnalysisJobData>("analysis", processAnalysisJob, {
+      connection: getRedisConnection(),
+      concurrency: 2,
+      limiter: { max: 5, duration: 1000 },
+    });
+
+    worker.on("completed", (job, result) => {
+      if (job) console.log(`[Queue] Job ${job.id} completed:`, result);
+    });
+    worker.on("failed", (job, err) => {
+      if (job) console.error(`[Queue] Job ${job.id} failed:`, err);
+    });
+    worker.on("progress", (job, progress) => {
+      if (job) console.log(`[Queue] Job ${job.id} progress:`, progress);
+    });
   }
-);
+  return worker;
+}
 
-worker.on("completed", (job, result) => {
-  if (job) {
-    console.log(`[Queue] Job ${job.id} completed:`, result);
-  }
-});
+export { getAnalysisQueue as analysisQueue, getWorker as worker };
 
-worker.on("failed", (job, err) => {
-  if (job) {
-    console.error(`[Queue] Job ${job.id} failed:`, err);
-  }
-});
-
-worker.on("progress", (job, progress) => {
-  if (job) {
-    console.log(`[Queue] Job ${job.id} progress:`, progress);
-  }
-});
-
-// ============================================
-// QUEUE EXPORTS
-// ============================================
-
-export { analysisQueue, worker };
-
-// Add job to queue
 export async function queueAnalysisJob(data: AnalysisJobData) {
-  const job = await analysisQueue.add("analysis", data, {
+  const job = await getAnalysisQueue().add("analysis", data, {
     jobId: `analysis_${data.analysisId}`,
-    removeOnComplete: true,
-    removeOnFail: false,
+    ...DEFAULT_JOB_OPTIONS,
   });
-  
+
   console.log(`[Queue] Added job ${job.id} for analysis ${data.analysisId}`);
   return job;
 }
 
-// Get job by ID (for progress tracking)
-export async function getJobById(jobId: string) {
-  const job = await analysisQueue.getJob(jobId);
-  return job;
+/** Privacy: manuálne odstránenie jobu z Redis fronty pri zmazaní spisu. */
+export async function removeAnalysisJob(analysisId: string): Promise<void> {
+  try {
+    const jobId = `analysis_${analysisId}`;
+    const job = await getAnalysisQueue().getJob(jobId);
+    if (job) {
+      await job.remove();
+      console.log(`[Privacy] Job ${jobId} bol úspešne odstránený z fronty.`);
+    }
+  } catch (err) {
+    console.warn(`[Privacy] Nepodarilo sa odstrániť job pre analýzu ${analysisId}:`, err);
+  }
 }
 
-// Get job progress
+export async function getJobById(jobId: string) {
+  return getAnalysisQueue().getJob(jobId);
+}
+
 export async function getJobProgress(analysisId: string) {
-  const job = await analysisQueue.getJob(`analysis_${analysisId}`);
-  
+  const job = await getAnalysisQueue().getJob(`analysis_${analysisId}`);
+
   if (!job) {
-    // Job might already be completed and removed
     const analysis = await prisma.analysis.findUnique({
       where: { id: analysisId },
       select: { status: true, errorMessage: true },
     });
-    
+
     return {
       status: analysis?.status || "unknown",
-      progress: analysis?.status === "ready" ? 100 : (analysis?.status === "error" ? 100 : 0),
+      progress:
+        analysis?.status === "ready"
+          ? 100
+          : analysis?.status === "error"
+            ? 100
+            : 0,
       message: analysis?.errorMessage || "Analýza sa spracúva...",
     };
   }
-  
+
   const state = await job.getState();
   const progress = job.progress;
-  
+
   return {
     id: job.id,
     state,
@@ -278,23 +267,22 @@ export async function getJobProgress(analysisId: string) {
   };
 }
 
-// Cleanup completed jobs
 export async function cleanupOldJobs(days: number = 7) {
   const cutoff = days * 24 * 60 * 60 * 1000;
-  await analysisQueue.clean(cutoff, 100, "completed");
-  await analysisQueue.clean(cutoff, 100, "failed");
+  await getAnalysisQueue().clean(cutoff, 100, "completed");
+  await getAnalysisQueue().clean(cutoff, 100, "failed");
 }
 
-// Graceful shutdown
 export async function shutdownQueue() {
-  await worker.close();
-  await analysisQueue.close();
-  if (redisConnection) {
-    await redisConnection.disconnect();
-  }
+  if (worker) await worker.close();
+  if (analysisQueue) await analysisQueue.close();
+  if (redisConnection) await redisConnection.disconnect();
+  worker = null;
+  analysisQueue = null;
+  redisConnection = null;
 }
 
-// Start queue processing (call this when server starts)
 export function startQueueProcessing() {
+  getWorker();
   console.log("[Queue] Worker started, waiting for jobs...");
 }

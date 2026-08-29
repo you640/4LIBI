@@ -1,7 +1,8 @@
 // Forenzný systémový prompt pre Sherlock AI (Issue #13 — S4.5)
 // Posielaný do Mistral/Pixtral API spolu s extrahovaným textom z PDF.
 
-import type { Analysis } from "../types";
+import type { Analysis, Relationship, TimelineEvent } from "../types";
+import { resolvePageFromText } from "./caseUtils";
 
 export const SHERLOCK_SYSTEM_PROMPT = `Si **ForenzDetectiv Sherlock AI** – odborný analytický systém na spracovanie právnych, vyšetrovacích a forenzných dokumentov.
 
@@ -19,6 +20,7 @@ Tvoja úloha je **extrahovať, triediť a chronologicky zoraďovať** dôležit�
 5. **Neisté údaje:** Pridaj "confidence": 0-1 (1 = isté, 0.5 = pravdepodobné, 0 = neisté).
 6. **Duplikáty:** Odstráň duplicitné udalosti a osoby.
 7. **Neinventuj:** Nepridávaj údaje, ktoré nie sú v texte.
+8. **Stránka (page):** Každý objekt v poliach \`timeline\` a \`relationships\` musí obsahovať kľúč \`page\` (number | null). Číslo strany extrahuj z textového prefixu \`[KONTEXT: ANALÝZA STRANY CCA N]\` v chunku, alebo zo značky \`--- STRANA N ---\` v citáte. Ak nevieš, použij null.
 
 ### Štruktúra JSON (POVINNÉ):
 {
@@ -52,7 +54,8 @@ Tvoja úloha je **extrahovať, triediť a chronologicky zoraďovať** dôležit�
       "person2_id": string,
       "type": string,
       "description": string,
-      "evidence_supporting": string[]
+      "evidence_supporting": string[],
+      "page": number | null
     }
   ],
   "timeline": [
@@ -67,7 +70,8 @@ Tvoja úloha je **extrahovať, triediť a chronologicky zoraďovať** dôležit�
       "tags": string[],
       "source_text": string,
       "confidence": number,
-      "approximate": boolean
+      "approximate": boolean,
+      "page": number | null
     }
   ]
 }
@@ -173,6 +177,57 @@ function asLanguage(value: unknown): Analysis["metadata"]["language"] {
   return "sk";
 }
 
+function sanitizePage(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  return undefined;
+}
+
+function normalizeTimelineItem(raw: Record<string, unknown>): TimelineEvent {
+  const sourceText = typeof raw.source_text === "string" ? raw.source_text : "";
+  const page =
+    sanitizePage(raw.page) ??
+    resolvePageFromText(sourceText) ??
+    resolvePageFromText(typeof raw.description === "string" ? raw.description : "");
+
+  return {
+    id: typeof raw.id === "string" ? raw.id : "",
+    timestamp: typeof raw.timestamp === "string" ? raw.timestamp : null,
+    title: typeof raw.title === "string" ? raw.title : "",
+    description: typeof raw.description === "string" ? raw.description : "",
+    location: typeof raw.location === "string" ? raw.location : null,
+    persons_involved: Array.isArray(raw.persons_involved)
+      ? (raw.persons_involved as string[])
+      : [],
+    evidence_links: Array.isArray(raw.evidence_links)
+      ? (raw.evidence_links as string[])
+      : [],
+    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
+    source_text: sourceText,
+    confidence: typeof raw.confidence === "number" ? raw.confidence : 0.5,
+    approximate: Boolean(raw.approximate),
+    ...(page !== undefined ? { page } : {}),
+  };
+}
+
+function normalizeRelationshipItem(raw: Record<string, unknown>): Relationship {
+  const description = typeof raw.description === "string" ? raw.description : "";
+  const page =
+    sanitizePage(raw.page) ?? resolvePageFromText(description);
+
+  return {
+    person1_id: typeof raw.person1_id === "string" ? raw.person1_id : "",
+    person2_id: typeof raw.person2_id === "string" ? raw.person2_id : "",
+    type: typeof raw.type === "string" ? raw.type : "",
+    description,
+    evidence_supporting: Array.isArray(raw.evidence_supporting)
+      ? (raw.evidence_supporting as string[])
+      : [],
+    ...(page !== undefined ? { page } : {}),
+  };
+}
+
 export function normalizeAnalysis(
   raw: Record<string, unknown>,
   documentName: string
@@ -199,10 +254,14 @@ export function normalizeAnalysis(
       ? (raw.evidence as Analysis["evidence"])
       : [],
     relationships: Array.isArray(raw.relationships)
-      ? (raw.relationships as Analysis["relationships"])
+      ? raw.relationships
+          .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+          .map(normalizeRelationshipItem)
       : [],
     timeline: Array.isArray(raw.timeline)
-      ? (raw.timeline as Analysis["timeline"])
+      ? raw.timeline
+          .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
+          .map(normalizeTimelineItem)
       : [],
   };
 }

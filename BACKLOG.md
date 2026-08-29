@@ -30,15 +30,15 @@
 ## S1.1 Sentry + ErrorBoundary + top 3 bugfix
 - **Priorita:** P0
 - **Odhad:** 80–120 h · 0–50 €
-- **Status:** `TODO`
+- **Status:** `DONE` (základná integrácia)
 
 ### Tasks
-- [ ] **T1.1.1** Nainštalovať `@sentry/react` a presunúť z `devDependencies` do `dependencies` v `package.json`
-- [ ] **T1.1.2** Implementovať globálny `<ErrorBoundary>` v `App.jsx`
-- [ ] **T1.1.3** Nastaviť `VITE_SENTRY_DSN` a `VITE_SENTRY_ENV` v `.env.example`
-- [ ] **T1.1.4** Opraviť top 3 crash-y podľa crash reportov (Firebase Crashlytics / Sentry)
-- [ ] **T1.1.5** Pridať retry logiku pre AI volania (exponential backoff pri 429)
-- [ ] **T1.1.6** Bulk concurrency: obmedziť na max 2 paralelné (špec hovorí max 2, aktuálne 4)
+- [x] **T1.1.1** `@sentry/react` v dependencies
+- [x] **T1.1.2** Globálny `<ErrorBoundary>` v `main.tsx`
+- [x] **T1.1.3** `VITE_SENTRY_DSN` v `.env.example` + docs/DEPLOY.md
+- [ ] **T1.1.4** Opraviť top 3 crash-y podľa crash reportov
+- [x] **T1.1.5** Retry logika pre AI volania (`aiRetry.ts`)
+- [ ] **T1.1.6** Bulk concurrency max 2
 
 ## S1.2 Odstrániť debug instrumentation z produkcie
 - **Priorita:** P0
@@ -54,34 +54,34 @@
 ## S1.3 PostHog EU live keys (RB-02)
 - **Priorita:** P0
 - **Odhad:** 1 h
-- **Status:** `TODO`
+- **Status:** `DONE` (kód + docs; live key v prod env)
 
 ### Tasks
-- [ ] **T1.3.1** Získať PostHog EU Project API Key
-- [ ] **T1.3.2** Nastaviť `VITE_POSTHOG_KEY` + `VITE_POSTHOG_HOST=https://eu.i.posthog.com` v prod env
-- [ ] **T1.3.3** Overiť, že po `demo_launched` / uploade sa zobrazí event v PostHog EU Live
-- [ ] **T1.3.4** Session recording ostáva vypnutý (GDPR súlad)
+- [ ] **T1.3.1** Získať PostHog EU Project API Key (ops)
+- [x] **T1.3.2** `VITE_POSTHOG_KEY` + `VITE_POSTHOG_HOST` v `.env.example`
+- [ ] **T1.3.3** Overiť live events v PostHog EU
+- [x] **T1.3.4** Session recording vypnutý (GDPR)
 
 ## S1.4 Wire trackContradictionDetected na reálnu detekciu (RB-03)
 - **Priorita:** P0
 - **Odhad:** 2 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T1.4.1** Volať `trackContradictionDetected(count, hasAlibiConflict)` po úspešnom `detectContradictions` (nielen v `loadDemoCase`)
-- [ ] **T1.4.2** Demo path ostáva bez double-count (alebo explicitne označené `isDemo: true`)
-- [ ] **T1.4.3** Žiadne PII v properties (hashovať `caseId`)
-- [ ] **T1.4.4** `npm test` + lint/typecheck PASS
+- [x] **T1.4.1** `trackContradictionDetected` po úspešnej analýze (`SherlockPage`)
+- [x] **T1.4.2** Demo path s `isDemo: true`
+- [x] **T1.4.3** Žiadne PII v properties (hash `caseId`)
+- [x] **T1.4.4** `npm test` + lint/typecheck PASS
 
 ## S1.5 Audit log v2 — logAction() wire (RB audit)
 - **Priorita:** P0
 - **Odhad:** 2 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T1.5.1** Zavolať `useAuditStore.logAction()` pri: case create, alibi check, PDF export
-- [ ] **T1.5.2** Pripojiť `AuditLogViewer.jsx` (aktuálne orphan)
-- [ ] **T1.5.3** Overiť, že audit log zaznamenáva kto, čo, kedy
+- [x] **T1.5.1** `logAction()` pri: case create, alibi check, PDF export, HITL
+- [x] **T1.5.2** `AuditLogViewer` v `/profil` a `/spisy/:id/audit`
+- [x] **T1.5.3** Audit + server sync `/api/audit-logs`
 
 ---
 
@@ -92,25 +92,25 @@
 ## S2.1 Empty Home s 1-tap CTA
 - **Priorita:** P0
 - **Odhad:** 16–24 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T2.1.1** `HomeHero.jsx` — primary CTA "Nahrať výpoveď (foto/PDF)" full-width amber
-- [ ] **T2.1.2** Secondary CTA "Vyskúšať demo spis (BA-KE alibi)" outline
-- [ ] **T2.1.3** Proof strip: "Rozpory · Alibi mapa · Citát zo zdroja"
-- [ ] **T2.1.4** Po analýze auto-jump na Contradiction Board
-- [ ] **T2.1.5** `BulkScanButton.jsx` — zmeniť farbu z indigo na slate/amber
+- [x] **T2.1.1** `HomePage.tsx` — CTA „Nahrať výpoveď“
+- [x] **T2.1.2** Secondary CTA demo BA-KE
+- [x] **T2.1.3** Proof strip
+- [x] **T2.1.4** Demo → `/spisy/demo/rozpory`
+- [ ] **T2.1.5** BulkScanButton farba (ak existuje)
 
 ## S2.2 Demo spis BA-KE (aha moment)
 - **Priorita:** P1
 - **Odhad:** 40–60 h
-- **Status:** `TODO`
+- **Status:** `DONE` (SK demo)
 
 ### Tasks
-- [ ] **T2.2.1** Pridať 1.5s loading simuláciu ("Analyzujem spis…")
-- [ ] **T2.2.2** `loadDemoCase()` → `activeView: 'contradictions'` (aha moment = rozpor)
-- [ ] **T2.2.3** CZ `praha-brno` demo keď `localStorage.forenz_lang === 'cs'`
-- [ ] **T2.2.4** Vytvoriť `DemoCaseRunner.jsx`
+- [x] **T2.2.1** 1.5s loading simulácia
+- [x] **T2.2.2** Demo → rozpory tab
+- [ ] **T2.2.3** CZ `praha-brno` demo
+- [x] **T2.2.4** `DemoCaseRunner.tsx`
 
 ## S2.3 Onboarding — 3 slides → 1 tip
 - **Priorita:** P1
@@ -157,7 +157,7 @@
 ## S3.1 PostHog 8 eventov + wiring
 - **Priorita:** P0
 - **Odhad:** 16–24 h · 0 €
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### 8 kľúčových eventov
 1. `demo_launched`
@@ -170,32 +170,32 @@
 8. `analysis_started`
 
 ### Tasks
-- [ ] **T3.1.1** Definovať všetkých 8 helperov v `src/lib/analytics.js`
-- [ ] **T3.1.2** Wire `trackCaseCreated` v upload flow
-- [ ] **T3.1.3** Wire `trackAlibiChecked` v map/alibi flow
-- [ ] **T3.1.4** Pridať PII sanitizáciu (email, IP → `[REDACTED]`)
-- [ ] **T3.1.5** Fallback na `console.log` keď PostHog nie je dostupný
+- [x] **T3.1.1** 8 helperov v `src/lib/analytics.ts`
+- [x] **T3.1.2** Wire `trackCaseCreated` v upload flow
+- [x] **T3.1.3** Wire `trackAlibiChecked` + `trackPdfExported`
+- [x] **T3.1.4** PII sanitizácia (email, IP → `[REDACTED]`)
+- [x] **T3.1.5** Fallback na `console.log` keď PostHog nie je dostupný
 
 ## S3.2 UTM tracking bootstrap (RB-07)
 - **Priorita:** P0
 - **Odhad:** 4 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T3.2.1** Zavolať `captureUtmParameters()` v `App.jsx` na boote
-- [ ] **T3.2.2** Pripojiť `MiniPlayground.jsx` + `LeadCaptureModal.jsx` na Home empty state
-- [ ] **T3.2.3** Prepojiť UTM dáta s PostHog eventami
-- [ ] **T3.2.4** `LeadCaptureModal` submit — logovať do backendu (nielen `console.info`)
+- [x] **T3.2.1** `initUtmTracking()` v `App.tsx` na boote
+- [ ] **T3.2.2** Legacy `MiniPlayground` / `LeadCaptureModal` — nahradené HomePage + QuickTip
+- [x] **T3.2.3** UTM dáta v PostHog eventoch (`withUtm`)
+- [ ] **T3.2.4** Lead capture backend — mimo scope (bez loginu)
 
 ## S3.3 Looker Studio North Star dashboard (RB-04)
 - **Priorita:** P1
 - **Odhad:** 2 h
-- **Status:** `TODO`
+- **Status:** `IN_PROGRESS`
 
 ### Tasks
-- [ ] **T3.3.1** Pripojiť Looker Studio na PostHog EU (alebo BigQuery export)
-- [ ] **T3.3.2** Scorecard: weekly unique users s `contradiction_viewed`
-- [ ] **T3.3.3** Funnel: `demo_launched → case_created → contradiction_detected → contradiction_viewed → pdf_exported`
+- [x] **T3.3.1** Dokumentácia v `docs/LOOKER_POSTHOG.md`
+- [ ] **T3.3.2** Scorecard: weekly unique users s `contradiction_viewed` (manuálny Looker setup)
+- [ ] **T3.3.3** Funnel v Looker Studio
 - [ ] **T3.3.4** Zdieľateľný link
 - [ ] **T3.3.5** Dokumentovať v `docs/LOOKER_POSTHOG.md`
 
@@ -218,77 +218,73 @@
 ## S4.1 Sherlock — výber dokumentov (oboje)
 - **Priorita:** P0
 - **Odhad:** 24–40 h
-- **Status:** `TODO`
+- **Status:** `IN_PROGRESS` (upload hotový, sandbox nie)
 
 ### Tasks
 - [ ] **T4.1.1** Prepínač zdroja: "Z môjho sandboxu" / "Nahrať nový"
 - [ ] **T4.1.2** Zoznam sandbox súborov (owner-scoped query)
 - [ ] **T4.1.3** Multi-selekcia súborov
-- [ ] **T4.1.4** Dropzone pre priamy PDF upload
-- [ ] **T4.1.5** Tlačidlo "Spustiť Sherlock Analýzu" so stavmi
+- [x] **T4.1.4** Dropzone pre priamy PDF upload
+- [x] **T4.1.5** Tlačidlo "Spustiť Sherlock analýzu" so stavmi + progress
 
-## S4.2 Backend — Convex node action `analyze`
+## S4.2 Backend — Hono API `/api/analyze`
 - **Priorita:** P0
 - **Odhad:** 40–60 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T4.2.1** Overiť vlastníctvo súborov (`file.ownerId === userId`)
-- [ ] **T4.2.2** Stiahnuť PDF zo storage (`ctx.storage.get`)
-- [ ] **T4.2.3** Extrahovať text cez `pdfjs-dist` (nie `pdf-parse`)
-- [ ] **T4.2.4** Poslať text do LLM
-- [ ] **T4.2.5** Validovať JSON odpoveď (required keys: metadata, persons, evidence, relationships, timeline)
-- [ ] **T4.2.6** Uložiť výsledok do tabuľky `analyses`
+- [x] **T4.2.1** Auth middleware + owner scoping
+- [x] **T4.2.2** Upload súborov do `uploads/`
+- [x] **T4.2.3** Extrakcia textu (pdfjs-dist)
+- [x] **T4.2.4** Mistral LLM + BullMQ fronta
+- [x] **T4.2.5** JSON validácia (metadata, persons, evidence, relationships, timeline)
+- [x] **T4.2.6** Uloženie do Prisma `analyses`
 
 ## S4.3 Databáza — `analyses` tabuľka
 - **Priorita:** P0
 - **Odhad:** 4 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T4.3.1** Polia: `ownerId`, `fileIds`, `name`, `data` (JSON), `status` (analyzing/ready/error), `errorMessage?`, `createdAt`, `updatedAt`
-- [ ] **T4.3.2** Index `by_owner`
-- [ ] **T4.3.3** Index `by_status` (rýchle filtrovanie)
+- [x] **T4.3.1** Polia: ownerId, name, data JSON, status, errorMessage, timestamps
+- [x] **T4.3.2** Index by owner
+- [x] **T4.3.3** Status filtering
 
 ## S4.4 Frontend — Timeline, osoby, dôkazy, vzťahy
 - **Priorita:** P0
 - **Odhad:** 40–60 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T4.4.1** `sherlock-results.tsx` — hlavný kontajner
-- [ ] **T4.4.2** Timeline: chronologicky zoradené (od najstaršej po najnovšiu)
-- [ ] **T4.4.3** Vyhľadávanie v timeline (full-text v `source_text`, `title`, `description`)
-- [ ] **T4.4.4** Karty osôb (s rolami: obvinený, svedok, obeť…)
-- [ ] **T4.4.5** Zoznam dôkazov (zoradené podľa `relevance_score`)
-- [ ] **T4.4.6** Vzťahy (graf alebo zoznam)
-- [ ] **T4.4.7** Klikateľné eventy → detail (osoby, dôkazy, source_text)
+- [x] **T4.4.1** Case layout + taby (rozpory, timeline, graf, osoby, audit)
+- [x] **T4.4.2** Timeline chronologicky
+- [x] **T4.4.3** Vyhľadávanie v timeline/rozpory
+- [x] **T4.4.4** Karty osôb
+- [x] **T4.4.5** Dôkazy v analýze
+- [x] **T4.4.6** Graf vzťahov (`GrafTab`)
+- [x] **T4.4.7** Detail eventov + bottom sheets
 
 ## S4.5 Sherlock — LLM systémový prompt (forenzný)
 - **Priorita:** P0
 - **Odhad:** 4 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T4.5.1** Definovať systémový prompt (ForenzDetectiv Sherlock AI)
-- [ ] **T4.5.2** Špecifikovať JSON schému (metadata, persons, evidence, relationships, timeline)
-- [ ] **T4.5.3** Časové formáty: `DD.MM.YYYY` → ISO 8601
-- [ ] **T4.5.4** `confidence` (0–1) a `approximate: true` pre neisté časy
-- [ ] **T4.5.5** `source_text` v každom timeline evente (pre full-text search)
-- [ ] **T4.5.6** Odpovedať v jazyku vstupu (SK/CZ/EN)
-- [ ] **T4.5.7** `temperature: 0.3` (nízka kreativita = presnosť)
+- [x] **T4.5.1** `sherlockPrompt.ts`
+- [x] **T4.5.2** JSON schéma
+- [x] **T4.5.3–T4.5.7** confidence, source_text, temperature 0.3
 
 ## S4.6 Sherlock — história uložených analýz
 - **Priorita:** P1
 - **Odhad:** 8 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T4.6.1** `listMyAnalyses` query
-- [ ] **T4.6.2** `getMyAnalysis` query (owner check)
-- [ ] **T4.6.3** `renameAnalysis` mutation
-- [ ] **T4.6.4** `remove` mutation (owner check)
-- [ ] **T4.6.5** Zobrazenie histórie na `/sherlock`
+- [x] **T4.6.1** GET `/api/analyses`
+- [x] **T4.6.2** GET `/api/analyses/:id`
+- [x] **T4.6.3** PATCH rename
+- [x] **T4.6.4** DELETE
+- [x] **T4.6.5** Nedávne analýzy na `/sherlock`
 
 ---
 
@@ -306,7 +302,7 @@
 - [ ] **T5.1.2** S `VITE_STRIPE_PUBLIC_KEY` → `redirectToCheckout`
 - [ ] **T5.1.3** Bez kľúča ostáva test mode + banner v `PricingModal`
 - [ ] **T5.1.4** Aktualizovať `docs/STRIPE_SETUP.md`
-- [ ] **T5.1.5** Secrets v Base44 / Convex env, nie v gite
+- [ ] **T5.1.5** Secrets v Railway/Vercel env, nie v gite
 
 ## S5.2 Paywall — `canCreateCase` enforcement
 - **Priorita:** P2
@@ -385,11 +381,11 @@
 ## S6.3 PWA manifest + service worker
 - **Priorita:** P2
 - **Odhad:** 4 h
-- **Status:** `TODO`
+- **Status:** `DONE` (čiastočne)
 
 ### Tasks
-- [ ] **T6.3.1** Aktualizovať `public/manifest.json`
-- [ ] **T6.3.2** Service worker pre offline IndexedDB
+- [x] **T6.3.1** `manifest.json` + vite-plugin-pwa
+- [x] **T6.3.2** Service worker (workbox cache)
 - [ ] **T6.3.3** PWA kamera prístup
 
 ---
@@ -501,23 +497,23 @@
 ## S9.2 Audit log v2
 - **Priorita:** P2
 - **Odhad:** 24 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T9.2.1** `useAuditStore.logAction()` volané pri všetkých kritických akciách
-- [ ] **T9.2.2** `AuditLogViewer.jsx` pripojený
+- [x] **T9.2.1** `logAction()` pri PDF export, alibi check, HITL confirm/dismiss
+- [x] **T9.2.2** `AuditLogViewer` v `/profil` a `/spisy/:id/audit`
 - [ ] **T9.2.3** Export audit logu (PDF/CSV)
-- [ ] **T9.2.4** "Rozhodnutia ostávajú na tebe" — AI len navrhuje
+- [x] **T9.2.4** „Rozhodnutia ostávajú na vás — AI len navrhuje“
 
 ## S9.3 Court PDF s SHA-256 hash
 - **Priorita:** P2
 - **Odhad:** 40–60 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T9.3.1** `pdfExporter.js` + `cryptoUtils.js`
-- [ ] **T9.3.2** SHA-256 hash protokolu
-- [ ] **T9.3.3** `PdfExportDialog.jsx` — pripojiť (orphan)
+- [x] **T9.3.1** `dossierExport.ts` + `courtDossier.ts`
+- [x] **T9.3.2** SHA-256 hash protokolu (Web Crypto API)
+- [x] **T9.3.3** `PdfExportDialog.tsx` v CaseHeader
 - [ ] **T9.3.4** Export options: citácie, mapa, audit log
 
 ---
@@ -539,32 +535,32 @@
 ## S10.2 SK geospatial alibi (must-have)
 - **Priorita:** P2
 - **Odhad:** 40 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T10.2.1** Haversine formula na výpočet vzdialenosti
-- [ ] **T10.2.2** Mapa s alibi body (BA-KE demo)
-- [ ] **T10.2.3** Časová konzistencia (alibi vs. čas činu)
+- [x] **T10.2.1** Haversine formula (`geospatialEngine.ts`)
+- [x] **T10.2.2** Mapa s alibi bodmi (vizualizácia) — SVG `AlibiMap` v RozporyTab
+- [x] **T10.2.3** Časová konzistencia — UI v `RozporyTab` + `/api/geospatial/check`
 
 ## S10.3 Graf vzťahov + PageRank (must-have)
 - **Priorita:** P2
 - **Odhad:** 40 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T10.3.1** Grafová reprezentácia vzťahov
-- [ ] **T10.3.2** PageRank pre dôležitosť osôb
-- [ ] **T10.3.3** Interaktívny graf (drag, zoom)
+- [x] **T10.3.1** Grafová reprezentácia vzťahov (`GrafTab`)
+- [x] **T10.3.2** PageRank badge na uzloch
+- [x] **T10.3.3** Interaktívny graf (drag, zoom)
 
 ## S10.4 Alibi Impossible share card (WOW)
 - **Priorita:** P2
 - **Odhad:** 16 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **T10.4.1** `AlibiShareCard` + `ShareModal`
-- [ ] **T10.4.2** PNG export pre LinkedIn
-- [ ] **T10.4.3** Virálny CTA: "Tento alibi je nemožný — dokázala AI"
+- [x] **T10.4.1** `AlibiShareCard` + bottom sheet v RozporyTab
+- [x] **T10.4.2** PNG export (`shareCardPng.ts`)
+- [x] **T10.4.3** Virálny CTA text na karte
 
 ## S10.5 Sherlock RAG (future)
 - **Priorita:** P3
@@ -583,26 +579,26 @@
 ## S11.1 GitHub Actions CI
 - **Priorita:** P0
 - **Odhad:** 4 h
-- **Status:** `TODO`
+- **Status:** `DONE`
 
 ### Tasks
-- [ ] **S11.1.1** Unlock GitHub billing (RB-01)
-- [ ] **S11.1.2** Workflow: `test → lint → typecheck → build`
-- [ ] **S11.1.3** Zelený build na `main`
-- [ ] **S11.1.4** Playwright e2e demo flow
+- [x] **S11.1.1** GitHub Actions workflow
+- [x] **S11.1.2** Workflow: `test → lint → typecheck → build`
+- [x] **S11.1.3** Integration job (Postgres + Redis)
+- [x] **S11.1.4** Playwright e2e (chromium, mock API)
 
 ## S11.2 Dokumentácia
 - **Priorita:** P3
 - **Odhad:** kontinuálne
-- **Status:** `TODO`
+- **Status:** `IN_PROGRESS`
 
 ### Tasks
-- [ ] **T11.2.1** `docs/LOOKER_POSTHOG.md` (8 eventov, North Star, Looker)
-- [ ] **T11.2.2** `docs/GOOGLE_ADS.md` (UTM + kampane SK/CZ)
-- [ ] **T11.2.3** `docs/STRIPE_SETUP.md` (test vs live)
-- [ ] **T11.2.4** `docs/TWA_SETUP.md` (Bubblewrap, assetlinks, Play)
+- [x] **T11.2.1** `docs/LOOKER_POSTHOG.md`
+- [ ] **T11.2.2** `docs/GOOGLE_ADS.md`
+- [ ] **T11.2.3** `docs/STRIPE_SETUP.md`
+- [ ] **T11.2.4** `docs/TWA_SETUP.md`
 - [ ] **T11.2.5** `docs/ASO_METADATA.md`
-- [ ] **T11.2.6** Aktualizovať `README.md` (z "3-krokový onboarding" na aktuálny stav)
+- [x] **T11.2.6** `README.md` + `docs/DEPLOY.md` synchronizované so stavom (Hono, /spisy, deploy)
 
 ## S11.3 Nástrojový stack
 

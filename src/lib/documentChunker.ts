@@ -8,6 +8,8 @@ export interface DocumentChunk {
   charStart: number;
   charEnd: number;
   estimatedTokens: number;
+  /** Posledná značka --- STRANA N --- pred koncom chunku (pre citácie LLM). */
+  likelyPage: number;
 }
 
 export interface ChunkerOptions {
@@ -17,9 +19,28 @@ export interface ChunkerOptions {
 
 const DEFAULT_MAX_CHUNK_CHARS = 24000; // ~6,000 tokenov na chunk (bezpečné pre LLM kontext)
 const DEFAULT_OVERLAP_CHARS = 2500;    // ~600 tokenov prekrytie pre zachovanie časových súvislostí
+const PAGE_MARKER_REGEX = /--- STRANA (\d+) ---/g;
+
+/**
+ * Posledné číslo strany zo značiek `--- STRANA N ---` v texte až po `textUpToEnd`.
+ */
+export function resolveLikelyPage(textUpToEnd: string, fallback = 1): number {
+  let last = fallback;
+  const re = new RegExp(PAGE_MARKER_REGEX.source, "g");
+  for (const m of textUpToEnd.matchAll(re)) {
+    const n = parseInt(m[1], 10);
+    if (!Number.isNaN(n)) last = n;
+  }
+  return last;
+}
+
+function withPageContext(chunkText: string, likelyPage: number): string {
+  return `[KONTEXT: ANALÝZA STRANY CCA ${likelyPage}]\n${chunkText}`;
+}
 
 /**
  * Rozdelí dlhý spis/text na logické bloky podľa odsekov/strán s kontextovým prekrytím.
+ * Do textu pre LLM pridá meta o pravdepodobnej strane; charStart/charEnd viažu na raw spis.
  */
 export function chunkDocument(
   text: string,
@@ -34,20 +55,23 @@ export function chunkDocument(
   if (!normalized) return [];
 
   if (normalized.length <= maxChunkChars) {
+    const likelyPage = resolveLikelyPage(normalized, 1);
     return [
       {
         index: 0,
         totalChunks: 1,
-        text: normalized,
+        text: withPageContext(normalized, likelyPage),
         charStart: 0,
         charEnd: normalized.length,
         estimatedTokens: Math.ceil(normalized.length / 4),
+        likelyPage,
       },
     ];
   }
 
   const chunks: DocumentChunk[] = [];
   let cursor = 0;
+  let lastKnownPage = 1;
 
   while (cursor < normalized.length) {
     let targetEnd = cursor + maxChunkChars;
@@ -78,13 +102,18 @@ export function chunkDocument(
 
     const chunkText = normalized.slice(cursor, targetEnd).trim();
     if (chunkText) {
+      lastKnownPage = resolveLikelyPage(
+        normalized.slice(0, targetEnd),
+        lastKnownPage
+      );
       chunks.push({
         index: chunks.length,
         totalChunks: 0, // doplní sa po skončení cyklu
-        text: chunkText,
+        text: withPageContext(chunkText, lastKnownPage),
         charStart: cursor,
         charEnd: targetEnd,
         estimatedTokens: Math.ceil(chunkText.length / 4),
+        likelyPage: lastKnownPage,
       });
     }
 
@@ -192,6 +221,7 @@ export function mergeAnalysisResults(
           type: rel.type,
           description: rel.description,
           evidence_supporting: rel.evidence_supporting || [],
+          ...(rel.page != null && rel.page > 0 ? { page: rel.page } : {}),
         });
       }
     }
@@ -218,6 +248,7 @@ export function mergeAnalysisResults(
           ...ev,
           id: ev.id || `event_${timelineEvents.length + 1}`,
           persons_involved: resolvedPersons,
+          ...(ev.page != null && ev.page > 0 ? { page: ev.page } : {}),
         });
       }
     }

@@ -83,7 +83,6 @@ export interface GraphNodeRecord {
   pageRankScore?: number;
   isKeyHub?: boolean;
   nodeRadius?: number;
-  [key: string]: unknown;
 }
 
 export interface GraphEdgeRecord {
@@ -91,7 +90,6 @@ export interface GraphEdgeRecord {
   person2_id?: string;
   source?: string | { id?: string };
   target?: string | { id?: string };
-  [key: string]: unknown;
 }
 
 // Výpočet sieťovej centrality (Degree a zjednodušený PageRank) bez externých závislostí

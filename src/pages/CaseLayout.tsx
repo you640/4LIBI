@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useParams } from "react-router-dom";
 import { getAnalysis } from "../lib/api";
 import type { Analysis } from "../types";
-import { DEMO_ANALYSIS } from "../types";
+import { DEMO_CASE_ID, getDemoAnalysis, isDemoCaseId } from "../lib/demoCase";
 import { CaseHeader } from "../components/m3/CaseHeader";
 import { AppBar } from "../components/m3/AppBar";
 import { SearchBar } from "../components/m3/SearchBar";
@@ -18,6 +18,7 @@ const TITLES: Record<string, string> = {
   timeline: "Časová os",
   graf: "Graf",
   osoby: "Osoby",
+  audit: "Audit",
 };
 
 export type CaseOutletContext = { bumpHitl: () => void };
@@ -25,8 +26,9 @@ export type CaseOutletContext = { bumpHitl: () => void };
 export function CaseLayout() {
   const { id = "" } = useParams();
 
-  if (id === "demo") {
-    return <LoadedCase analysisId="demo" analysis={DEMO_ANALYSIS} />;
+  if (isDemoCaseId(id)) {
+    rememberLastCaseId(DEMO_CASE_ID);
+    return <LoadedCase analysisId={DEMO_CASE_ID} analysis={getDemoAnalysis()} />;
   }
 
   return <RemoteCase id={id} />;
@@ -39,8 +41,11 @@ function RemoteCase({ id }: { id: string }) {
 
   useEffect(() => {
     if (!id) return;
+
     rememberLastCaseId(id);
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     getAnalysis(id)
       .then((record) => {
@@ -113,7 +118,7 @@ function LoadedCase({
   }, [analysisId]);
 
   const pathTab = location.pathname.split("/").pop() || "rozpory";
-  const tabKey = ["rozpory", "timeline", "graf", "osoby"].includes(pathTab)
+  const tabKey = ["rozpory", "timeline", "graf", "osoby", "audit"].includes(pathTab)
     ? pathTab
     : "rozpory";
 
@@ -140,7 +145,7 @@ function LoadedCase({
       }}
     >
       <div className="flex flex-col min-h-0 flex-1">
-        <CaseHeader analysis={analysis} />
+        <CaseHeader analysis={analysis} analysisId={analysisId} />
         <AppBar
           title={TITLES[tabKey] || "Spis"}
           searchOpen={searchOpen}

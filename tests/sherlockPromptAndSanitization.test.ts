@@ -73,6 +73,35 @@ describe("Sherlock Prompt Construction & JSON Sanitization", () => {
     expect(normalizeAnalysis(rawSk, "").metadata.language).toBe("sk");
   });
 
+  it("normalizuje page z timeline a fallback zo source_text", () => {
+    const raw = {
+      timeline: [
+        {
+          id: "t1",
+          title: "A",
+          description: "",
+          source_text: "--- STRANA 9 --- citát",
+          tags: [],
+          confidence: 0.8,
+          approximate: false,
+        },
+        {
+          id: "t2",
+          title: "B",
+          description: "",
+          source_text: "bez strany",
+          page: 15,
+          tags: [],
+          confidence: 0.9,
+          approximate: false,
+        },
+      ],
+    };
+    const normalized = normalizeAnalysis(raw, "Spis");
+    expect(normalized.timeline[0].page).toBe(9);
+    expect(normalized.timeline[1].page).toBe(15);
+  });
+
   it("úspešne overí a rozparsuje platnú LLM odpoveď pomocou parseAnalysisResponse", () => {
     const response = JSON.stringify({
       metadata: { document_name: "Kauza BA-KE", language: "sk" },

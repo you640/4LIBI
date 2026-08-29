@@ -75,7 +75,7 @@ async function analyzeText(
 
   for (const chunk of chunks) {
     console.log(
-      `[Sherlock] Analyzujem blok ${chunk.index + 1}/${chunk.totalChunks} (${chunk.text.length} znakov)…`
+      `[Sherlock] Analyzujem blok ${chunk.index + 1}/${chunk.totalChunks} (strana cca ${chunk.likelyPage}, ${chunk.text.length} znakov)…`
     );
     const chunkResult = await analyzeSingleChunk(chunk.text, documentName, apiKey);
     partialAnalyses.push(chunkResult);

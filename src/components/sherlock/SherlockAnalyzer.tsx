@@ -3,13 +3,11 @@ import { UploadIcon, ScanIcon, AlertIcon } from "../Icons";
 
 interface SherlockAnalyzerProps {
   onAnalyze: (files: File[]) => void;
-  onDemo: () => void;
   error: string | null;
 }
 
 export function SherlockAnalyzer({
   onAnalyze,
-  onDemo,
   error,
 }: SherlockAnalyzerProps) {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -89,18 +87,12 @@ export function SherlockAnalyzer({
         type="button"
         onClick={() => canAnalyze && onAnalyze(uploadedFiles)}
         disabled={!canAnalyze}
-        className="m3-btn-filled mb-4"
+        className="m3-btn-filled"
+        data-testid="sherlock-analyze-btn"
       >
-        Spustiť analýzu
-      </button>
-
-      <button
-        type="button"
-        onClick={onDemo}
-        className="text-sm text-outline underline-offset-4 hover:underline w-full text-center"
-      >
-        Vyskúšať demo spis (BA-KE)
+        Spustiť Sherlock analýzu
       </button>
     </div>
   );
 }
+

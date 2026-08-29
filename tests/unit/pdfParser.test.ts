@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { chunkText, truncateText } from "../../src/lib/pdfParser";
+import { describe, it, expect } from "vitest";
+import { chunkText, isPdf, estimateTokens } from "../../src/lib/pdfParser";
 
 describe("pdfParser", () => {
   describe("chunkText", () => {
@@ -19,50 +19,34 @@ describe("pdfParser", () => {
     });
 
     it("should maintain overlap between chunks for context continuity", () => {
-      const text = "0123456789".repeat(20000); // 200,000 characters
+      const text = "0123456789".repeat(20000);
       const chunks = chunkText(text, 100000, 10000);
-      
       expect(chunks.length).toBe(3);
-      
-      // First chunk: 0-100000
       expect(chunks[0]).toBe(text.slice(0, 100000));
-      
-      // Second chunk should start at 90000 (100000 - 10000 overlap) and end at 190000
       expect(chunks[1]).toBe(text.slice(90000, 190000));
-      // Third chunk should start at 180000 (190000 - 10000 overlap)
       expect(chunks[2]).toBe(text.slice(180000));
     });
 
     it("should handle empty text", () => {
-      const chunks = chunkText("", 100000);
-      expect(chunks).toEqual([""]);
+      expect(chunkText("", 100000)).toEqual([""]);
     });
 
     it("should handle exactly maxChars length", () => {
       const text = "a".repeat(100000);
-      const chunks = chunkText(text, 100000);
-      expect(chunks).toEqual([text]);
+      expect(chunkText(text, 100000)).toEqual([text]);
     });
   });
 
-  describe("truncateText (DEPRECATED)", () => {
-    it("should warn when used", () => {
-      const consoleWarnSpy = vi.spyOn(console, "warn");
-      const text = "a".repeat(200000);
-      const result = truncateText(text, 100000);
-      
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("DEPRECATED")
-      );
-      expect(result.length).toBe(100000);
-      
-      consoleWarnSpy.mockRestore();
+  describe("isPdf / estimateTokens", () => {
+    it("detects PDF magic bytes", () => {
+      const pdf = new TextEncoder().encode("%PDF-1.4 rest").buffer;
+      const notPdf = new TextEncoder().encode("HELLO").buffer;
+      expect(isPdf(pdf)).toBe(true);
+      expect(isPdf(notPdf)).toBe(false);
     });
 
-    it("should return full text when under limit", () => {
-      const text = "Short text";
-      const result = truncateText(text, 100000);
-      expect(result).toBe(text);
+    it("estimates tokens roughly", () => {
+      expect(estimateTokens("abcd efgh")).toBeGreaterThan(0);
     });
   });
 });
