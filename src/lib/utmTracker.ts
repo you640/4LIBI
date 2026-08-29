@@ -1,5 +1,5 @@
 // UTM tracking bootstrap (Issue #8 — S3.2)
-// Zachytí UTM parametre z URL, uloží do localStorage a prepojí s PostHog.
+// Zachytí UTM parametre z URL a uloží do localStorage.
 
 const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
 
@@ -45,7 +45,7 @@ export function initUtmTracking(): void {
   }
 }
 
-// S3.2.5 — Pripoj UTM dáta k PostHog event properties
+// S3.2.5 — Pripoj UTM dáta k event properties
 export function withUtm(properties: Record<string, unknown>): Record<string, unknown> {
   const utm = getUtmData();
   return { ...properties, ...utm };

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
+import { HomePage } from "./pages/HomePage";
 import { SherlockPage } from "./pages/SherlockPage";
 import { FilesPage } from "./pages/FilesPage";
 import { CaseLayout } from "./pages/CaseLayout";
@@ -9,8 +10,9 @@ import { RozporyTab } from "./components/case/RozporyTab";
 import { TimelineTab } from "./components/case/TimelineTab";
 import { GrafTab } from "./components/case/GrafTab";
 import { OsobyTab } from "./components/case/OsobyTab";
-import { initAnalytics } from "./lib/analytics";
+import { AuditTab } from "./components/case/AuditTab";
 import { initUtmTracking } from "./lib/utmTracker";
+import { initAnalytics } from "./lib/analytics";
 
 export default function App() {
   useEffect(() => {
@@ -23,7 +25,7 @@ export default function App() {
       <div className="app-shell">
         <Routes>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<Navigate to="/spisy" replace />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/sherlock" element={<SherlockPage />} />
             <Route path="/spisy" element={<FilesPage />} />
             <Route path="/spisy/:id" element={<CaseLayout />}>
@@ -32,6 +34,7 @@ export default function App() {
               <Route path="timeline" element={<TimelineTab />} />
               <Route path="graf" element={<GrafTab />} />
               <Route path="osoby" element={<OsobyTab />} />
+              <Route path="audit" element={<AuditTab />} />
             </Route>
             <Route path="/profil" element={<ProfilePage />} />
             <Route path="*" element={<Navigate to="/spisy" replace />} />

@@ -1,11 +1,10 @@
-// PostHog analytics vrstva (Issues #3, #7 — S1.3, S3.1)
-// 8 kľúčových eventov + PII sanitizácia + fallback na console.log.
+// PostHog analytics (EPIC 3 — S3.1) + console.log fallback when key missing.
 
 import posthog from "posthog-js";
+import { withUtm } from "./utmTracker";
 
 let initialized = false;
 
-// 8 kľúčových eventov (S3.1)
 export const ANALYTICS_EVENTS = {
   DEMO_LAUNCHED: "demo_launched",
   CASE_CREATED: "case_created",
@@ -17,34 +16,38 @@ export const ANALYTICS_EVENTS = {
   ANALYSIS_STARTED: "analysis_started",
 } as const;
 
-// Inicializácia PostHog EU (S1.3)
-export function initAnalytics() {
+/** @internal Vitest only */
+export function resetAnalyticsForTests(): void {
+  initialized = false;
+}
+
+export function isAnalyticsInitialized(): boolean {
+  return initialized;
+}
+
+export function initAnalytics(): void {
   const key = import.meta.env.VITE_POSTHOG_KEY;
   const host = import.meta.env.VITE_POSTHOG_HOST || "https://eu.i.posthog.com";
 
   if (!key) {
-    console.warn("[PostHog] VITE_POSTHOG_KEY nie je nastavené — analytika vypnutá.");
+    console.warn("[Analytics] VITE_POSTHOG_KEY nie je nastavené — fallback na console.log.");
     return;
   }
 
+  if (typeof window === "undefined") return;
+
   posthog.init(key, {
     api_host: host,
-    // Session recording vypnutý (GDPR súlad — S1.3.4)
     disable_session_recording: true,
     persistence: "localStorage",
-    loaded: (ph) => {
-      // V dev vypni capture (voliteľné)
-      if (import.meta.env.DEV) {
-        ph.opt_out_capturing();
-      }
-    },
+    autocapture: false,
+    capture_pageview: false,
   });
 
   initialized = true;
-  console.log(`[PostHog] Inicializované (host: ${host})`);
+  console.log(`[Analytics] PostHog EU initialized (${host})`);
 }
 
-// PII sanitizácia — odstráni email, IP, osobné údaje (S3.1.4)
 function sanitizeProperties(properties: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
   const sensitiveKeys = ["email", "ip", "phone", "name", "address", "password"];
@@ -62,31 +65,35 @@ function sanitizeProperties(properties: Record<string, unknown>): Record<string,
   return sanitized;
 }
 
-// Hlavná track funkcia — fallback na console.log (S3.1.5, S3.1.6)
 export function trackEvent(
   event: string,
   properties: Record<string, unknown> = {}
 ): void {
-  const safeProps = sanitizeProperties(properties);
+  const safeProps = sanitizeProperties(withUtm(properties));
 
   if (initialized) {
     posthog.capture(event, safeProps);
-  } else {
-    console.log(`[PostHog Fallback] ${event}`, safeProps);
+    return;
   }
+
+  console.log(`[Analytics] ${event}`, safeProps);
 }
 
-// Identifikácia používateľa
 export function identifyUser(userId: string, properties?: Record<string, unknown>) {
+  const safe = properties ? sanitizeProperties(withUtm(properties)) : undefined;
   if (initialized) {
-    posthog.identify(userId, properties ? sanitizeProperties(properties) : undefined);
+    posthog.identify(userId, safe);
+    return;
+  }
+  if (safe) {
+    console.log(`[Analytics] User identified: ${userId}`, safe);
+  } else {
+    console.log(`[Analytics] User identified: ${userId}`);
   }
 }
-
-// === 8 špecifických event helperov (S3.1.1) ===
 
 export function trackDemoLaunched(properties?: { source?: string }) {
-  trackEvent(ANALYTICS_EVENTS.DEMO_LAUNCHED, properties);
+  trackEvent(ANALYTICS_EVENTS.DEMO_LAUNCHED, properties ?? {});
 }
 
 export function trackCaseCreated(properties: {
@@ -96,38 +103,43 @@ export function trackCaseCreated(properties: {
   trackEvent(ANALYTICS_EVENTS.CASE_CREATED, properties);
 }
 
-// S1.4 — trackContradictionDetected na reálnu detekciu
 export function trackContradictionDetected(properties: {
   count: number;
   hasAlibiConflict: boolean;
   caseId?: string;
   isDemo?: boolean;
 }) {
-  const safeProps = {
+  trackEvent(ANALYTICS_EVENTS.CONTRADICTION_DETECTED, {
     count: properties.count,
     has_alibi_conflict: properties.hasAlibiConflict,
-    // Hash caseId — žiadne PII (S1.4.3)
     case_id: properties.caseId
       ? `case_${properties.caseId.substring(0, 8)}`
       : undefined,
     is_demo: properties.isDemo ?? false,
-  };
-  trackEvent(ANALYTICS_EVENTS.CONTRADICTION_DETECTED, safeProps);
+  });
 }
 
-export function trackContradictionViewed(properties?: { contradictionId?: string }) {
-  trackEvent(ANALYTICS_EVENTS.CONTRADICTION_VIEWED, properties);
+export function trackContradictionViewed(properties?: {
+  contradictionId?: string;
+  isDemo?: boolean;
+}) {
+  trackEvent(ANALYTICS_EVENTS.CONTRADICTION_VIEWED, {
+    contradiction_id: properties?.contradictionId,
+    is_demo: properties?.isDemo ?? false,
+  });
 }
 
 export function trackPdfExported(properties?: { format?: string }) {
-  trackEvent(ANALYTICS_EVENTS.PDF_EXPORTED, properties);
+  trackEvent(ANALYTICS_EVENTS.PDF_EXPORTED, properties ?? {});
 }
 
 export function trackAlibiChecked(properties?: { caseId?: string }) {
-  const safeProps = properties?.caseId
-    ? { case_id: `case_${properties.caseId.substring(0, 8)}` }
-    : {};
-  trackEvent(ANALYTICS_EVENTS.ALIBI_CHECKED, safeProps);
+  trackEvent(
+    ANALYTICS_EVENTS.ALIBI_CHECKED,
+    properties?.caseId
+      ? { case_id: `case_${properties.caseId.substring(0, 8)}` }
+      : {}
+  );
 }
 
 export function trackErrorOccurred(properties: {

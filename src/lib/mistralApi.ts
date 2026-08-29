@@ -34,7 +34,7 @@ export async function callMistralApi(
 
   if (!apiKey) {
     throw new Error(
-      "Chýba MISTRAL_API_KEY — nastavte v environment variables (Convex / Base44)"
+      "Chýba MISTRAL_API_KEY — nastavte na Hono serveri (.env), nie v prehliadači."
     );
   }
 
@@ -140,7 +140,7 @@ export async function callMistralOcr(config: {
 
   if (!apiKey) {
     throw new Error(
-      "Chýba MISTRAL_API_KEY — nastavte v environment variables (Convex / .env)"
+      "Chýba MISTRAL_API_KEY — nastavte na Hono serveri (.env), nie v prehliadači."
     );
   }
 

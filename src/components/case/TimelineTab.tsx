@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCaseContext } from "../../lib/caseContext";
-import { formatEventTime } from "../../lib/caseUtils";
+import { formatEventTime, resolveEventPage } from "../../lib/caseUtils";
+import { PageBadge } from "./PageBadge";
 
 export function TimelineTab() {
   const { analysis, analysisId, search } = useCaseContext();
@@ -51,9 +52,10 @@ export function TimelineTab() {
                     : "0 0 0 2px var(--md-sys-color-primary-container)",
                 }}
               />
-              <p className="text-[11px] text-outline m-0 mb-1">
+              <p className="text-[11px] text-outline m-0 mb-1 flex items-center gap-2 flex-wrap">
                 {formatEventTime(event.timestamp)}
                 {event.location ? ` · ${event.location}` : ""}
+                <PageBadge page={resolveEventPage(event)} />
               </p>
               <h3 className="text-base font-semibold m-0 mb-1 text-surface-on">
                 {event.title}

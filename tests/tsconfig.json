@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"],
+    "noEmit": true,
+    "rootDir": "..",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "./vitest-env.d.ts",
+    "../src/vite-env.d.ts"
+  ]
+}

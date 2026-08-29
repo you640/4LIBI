@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { Analysis } from "../../types";
 import { AlertIcon, CheckIcon } from "../Icons";
+import { downloadShareCardPng, renderShareCardPng } from "../../lib/shareCardPng";
 
 interface AlibiShareCardProps {
   analysis: Analysis;
@@ -10,6 +11,7 @@ interface AlibiShareCardProps {
 export function AlibiShareCard({ analysis, onClose }: AlibiShareCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [pngBusy, setPngBusy] = useState(false);
 
   const contradiction = analysis.timeline.find((e) =>
     e.tags.includes("rozpor")
@@ -42,6 +44,18 @@ ForenzDetectiv — AI, ktorá nájde rozpor za sekundu.`;
       } catch {
         console.error("Kopírovanie zlyhalo");
       }
+    }
+  };
+
+  const handlePngExport = async () => {
+    setPngBusy(true);
+    try {
+      const blob = await renderShareCardPng(analysis);
+      downloadShareCardPng(blob);
+    } catch (err) {
+      console.error("PNG export zlyhal:", err);
+    } finally {
+      setPngBusy(false);
     }
   };
 
@@ -109,6 +123,14 @@ ForenzDetectiv — AI, ktorá nájde rozpor za sekundu.`;
 
         <div className="px-5 pb-5">
           <p className="text-[11px] text-stone-400 mb-4">ForenzDetectiv</p>
+          <button
+            onClick={handlePngExport}
+            disabled={pngBusy}
+            className="btn-secondary flex items-center justify-center gap-2 mb-2"
+            data-testid="alibi-share-png"
+          >
+            {pngBusy ? "Generujem PNG…" : "Stiahnuť PNG"}
+          </button>
           <button
             onClick={handleShare}
             className="btn-primary flex items-center justify-center gap-2 mb-2"

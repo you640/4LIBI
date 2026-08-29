@@ -65,6 +65,7 @@ export function estimateTokens(text: string): number {
 /**
  * Rozdelí text na chunky pre LLM spracovanie.
  * Každý chunk má maximálne maxChars znakov s prekryvom (overlap) pre kontext.
+ * @deprecated Použite chunkDocument z documentChunker.ts (page-aware chunking pre Sherlock).
  */
 export function chunkText(text: string, maxChars: number = 120000, overlap: number = 10000): string[] {
   if (text.length <= maxChars) {
@@ -86,14 +87,4 @@ export function chunkText(text: string, maxChars: number = 120000, overlap: numb
   }
   
   return chunks;
-}
-
-/**
- * Zastaraná funkcia - NEPOUŽÍVAŇ
- * @deprecated Použite chunkDocument z documentChunker.ts pre inteligentné spracovanie bez orezávania.
- */
-export function truncateText(text: string, maxChars?: number): string {
-  console.warn("[CRITICAL] truncateText() is DEPRECATED and should not be used. Use chunkText() instead!");
-  if (!maxChars || text.length <= maxChars) return text;
-  return text.slice(0, maxChars);
 }

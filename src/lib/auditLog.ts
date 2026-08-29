@@ -1,4 +1,5 @@
 // Forenzný Audit Log (PostgreSQL + Local Fallback)
+import { apiPath } from "./apiBase";
 // Zaznamenáva kritické akcie: case create, alibi check, PDF export, HITL zmeny.
 
 export interface AuditEntry {
@@ -64,7 +65,7 @@ export function logAction(
 
   // Asynchrónna perzistencia do PostgreSQL na serveri (iba v browseri)
   if (typeof window !== "undefined" && typeof fetch === "function") {
-    fetch("/api/audit-logs", {
+    fetch(apiPath("/api/audit-logs"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -104,7 +105,7 @@ export function getAuditLog(): AuditEntry[] {
 export async function fetchServerAuditLogs(limit = 100): Promise<AuditEntry[]> {
   if (typeof window === "undefined" || typeof fetch === "undefined") return getAuditLog();
   try {
-    const res = await fetch(`/api/audit-logs?limit=${limit}`);
+    const res = await fetch(apiPath(`/api/audit-logs?limit=${limit}`));
     if (!res.ok) return getAuditLog();
     const data = (await res.json()) as { logs?: ServerAuditLogRecord[] };
     if (data && Array.isArray(data.logs)) {
@@ -132,8 +133,21 @@ export function auditCaseCreate(details: { fileCount: number; source: string }) 
   logAction("case_create", details);
 }
 
-export function auditAlibiCheck(details: { caseId?: string; result: string }) {
+export function auditAlibiCheck(details: {
+  caseId?: string;
+  result: string;
+  locA?: string;
+  locB?: string;
+}) {
   logAction("alibi_check", details);
+}
+
+export function auditHitlChange(details: {
+  caseId: string;
+  eventId: string;
+  status: "confirmed" | "dismissed";
+}) {
+  logAction(`hitl_${details.status}`, details);
 }
 
 export function auditPdfExport(details: { format: string; caseId?: string }) {

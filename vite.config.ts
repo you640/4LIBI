@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon.svg", "manifest.json"],
+      includeAssets: ["forenzdetectiv.png", "icon.svg", "manifest.json"],
       manifest: {
         name: "ForenzDetectiv — AI rozpory vo výpovediach",
         short_name: "ForenzDetectiv",
@@ -21,15 +21,15 @@ export default defineConfig({
         lang: "sk",
         icons: [
           {
-            src: "/icon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
+            src: "/forenzdetectiv.png",
+            sizes: "512x512",
+            type: "image/png",
             purpose: "any",
           },
           {
-            src: "/icon.svg",
+            src: "/forenzdetectiv.png",
             sizes: "512x512",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "maskable",
           },
         ],

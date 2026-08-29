@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef } from "react";
 import { useCaseContext } from "../../lib/caseContext";
+import { calculateGraphMetrics } from "../../lib/graphMetrics";
 import { BottomSheet } from "../m3/BottomSheet";
 import type { Person, Relationship } from "../../types";
 
@@ -9,6 +10,8 @@ interface NodePosition {
   y: number;
   person: Person;
   degree: number;
+  pageRankScore: number;
+  isKeyHub: boolean;
   colorClass: string;
   isSuspect: boolean;
   isAlibi: boolean;
@@ -26,6 +29,26 @@ export function GrafTab() {
 
   const persons = useMemo(() => analysis.persons || [], [analysis.persons]);
   const relationships = useMemo(() => analysis.relationships || [], [analysis.relationships]);
+
+  const metricsMap = useMemo(() => {
+    const { nodesWithMetrics } = calculateGraphMetrics(persons, relationships);
+    const map = new Map<string, { pageRankScore: number; isKeyHub: boolean; degree: number }>();
+    for (const n of nodesWithMetrics) {
+      map.set(n.id, {
+        pageRankScore: n.pageRankScore || 0,
+        isKeyHub: Boolean(n.isKeyHub),
+        degree: n.degree || 0,
+      });
+      if (n.name) {
+        map.set(n.name.toLowerCase().trim(), {
+          pageRankScore: n.pageRankScore || 0,
+          isKeyHub: Boolean(n.isKeyHub),
+          degree: n.degree || 0,
+        });
+      }
+    }
+    return map;
+  }, [persons, relationships]);
 
   // Výpočet stupňa (degree centrality) a farebného kódovania pre každú osobu
   const nodes = useMemo<NodePosition[]>(() => {
@@ -46,6 +69,9 @@ export function GrafTab() {
     // Usporiadanie do dynamického viacvrstvového kruhu / force layoutu
     return persons.map((person, index) => {
       const degree = degreeMap.get(person.id) || degreeMap.get(person.name) || 0;
+      const metrics = metricsMap.get(person.id) || metricsMap.get(person.name.toLowerCase().trim());
+      const pageRankScore = metrics?.pageRankScore ?? 0;
+      const isKeyHub = metrics?.isKeyHub ?? false;
       const roleLower = (person.role || "").toLowerCase();
       const isSuspect = roleLower.includes("podozriv") || roleLower.includes("obvinen");
       const isAlibi = roleLower.includes("alibi");
@@ -67,6 +93,8 @@ export function GrafTab() {
           y: centerY,
           person,
           degree,
+          pageRankScore,
+          isKeyHub,
           colorClass,
           isSuspect,
           isAlibi,
@@ -83,12 +111,14 @@ export function GrafTab() {
         y: centerY + radius * Math.sin(angle),
         person,
         degree,
+        pageRankScore,
+        isKeyHub,
         colorClass,
         isSuspect,
         isAlibi,
       };
     });
-  }, [persons, relationships]);
+  }, [persons, relationships, metricsMap]);
 
   const nodeMap = useMemo(() => {
     const map = new Map<string, NodePosition>();
@@ -323,6 +353,28 @@ export function GrafTab() {
                 >
                   {node.person.name}
                 </text>
+                {(node.isKeyHub || node.pageRankScore > 0) && (
+                  <g transform="translate(18, -18)">
+                    <rect
+                      x="-22"
+                      y="-8"
+                      width="44"
+                      height="16"
+                      rx="8"
+                      fill="var(--md-sys-color-tertiary-container)"
+                    />
+                    <text
+                      textAnchor="middle"
+                      dy="4"
+                      fontSize="8"
+                      fontWeight="bold"
+                      className="fill-tertiary-on-container"
+                      data-testid="pagerank-badge"
+                    >
+                      PR {(node.pageRankScore * 100).toFixed(1)}
+                    </text>
+                  </g>
+                )}
               </g>
             );
           })}
@@ -375,6 +427,21 @@ export function GrafTab() {
               <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-container text-primary-on-container">
                 {selectedPerson.role || "Osoba v spise"}
               </span>
+              {(() => {
+                const m =
+                  metricsMap.get(selectedPerson.id) ||
+                  metricsMap.get(selectedPerson.name.toLowerCase().trim());
+                if (!m) return null;
+                return (
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-tertiary-container text-tertiary-on-container"
+                    data-testid="pagerank-detail"
+                  >
+                    PageRank {(m.pageRankScore * 100).toFixed(2)}%
+                    {m.isKeyHub ? " · kľúčový uzol" : ""}
+                  </span>
+                );
+              })()}
               {selectedPerson.aliases && selectedPerson.aliases.length > 0 && (
                 <span className="text-xs text-outline">
                   Alias: {selectedPerson.aliases.join(", ")}
