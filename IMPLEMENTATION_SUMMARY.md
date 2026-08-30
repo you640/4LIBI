@@ -173,7 +173,6 @@ This document describes the comprehensive implementation of all critical fixes f
   - Offline caching of assets
   - Cache strategies:
     - `CacheFirst` for Google Fonts
-    - `StaleWhileRevalidate` for demo analyses
     - `NetworkFirst` for Mistral API calls
   - Manifest with proper icons and theme colors
   - Standalone display mode

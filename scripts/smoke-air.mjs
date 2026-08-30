@@ -11,13 +11,10 @@ const BASE = process.env.SMOKE_BASE || "http://127.0.0.1:5175";
 const VIEWPORT = { width: 430, height: 932 };
 
 const ROUTES = [
+  "/",
   "/spisy",
   "/sherlock",
   "/profil",
-  "/spisy/demo/rozpory",
-  "/spisy/demo/timeline",
-  "/spisy/demo/graf",
-  "/spisy/demo/osoby",
 ];
 
 function overlapReport(islandBottom, nodes) {
@@ -123,36 +120,11 @@ try {
     if (chromeInIsland) failures.push(`${route} AppBar/CaseHeader/search overlap island`);
   }
 
-  await page.goto(`${BASE}/sherlock?demo=true`, {
-    waitUntil: "networkidle",
-    timeout: 20000,
-  });
-  await page.waitForURL("**/spisy/demo/**", { timeout: 8000 });
-  await page.waitForTimeout(500);
-  const demo = await metrics(page);
-  const demoOverlaps = overlapReport(
-    demo.islandBottom,
-    await interactiveInIsland(page, demo.islandBottom)
-  );
-  results.push({
-    route: "/sherlock?demo=true → " + new URL(demo.href).pathname,
-    islandBottom: Math.round(demo.islandBottom),
-    appBarTop: demo.appBarTop == null ? null : Math.round(demo.appBarTop),
-    overlaps: demoOverlaps,
-    snippet: demo.bodyText.replace(/\s+/g, " ").slice(0, 160),
-  });
-  if (!demo.href.includes("/spisy/demo")) {
-    failures.push("demo did not land on /spisy/demo");
-  }
-  if (demoOverlaps.length) {
-    failures.push(`demo island overlaps: ${demoOverlaps.join("; ")}`);
-  }
-
   // Simulate iPhone Air safe-area-inset-top = 59px
   await page.addInitScript(() => {
     document.documentElement.style.setProperty("--safe-top", "59px");
   });
-  await page.goto(`${BASE}/spisy/demo/rozpory`, {
+  await page.goto(`${BASE}/`, {
     waitUntil: "networkidle",
     timeout: 20000,
   });
@@ -166,7 +138,7 @@ try {
     await interactiveInIsland(page, air.islandBottom)
   );
   results.push({
-    route: "/spisy/demo/rozpory (safe-top 59px)",
+    route: "/ (safe-top 59px)",
     islandHeight: Math.round(air.islandHeight),
     islandBottom: Math.round(air.islandBottom),
     appBarTop: air.appBarTop == null ? null : Math.round(air.appBarTop),

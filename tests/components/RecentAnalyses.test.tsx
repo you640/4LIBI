@@ -28,7 +28,6 @@ describe("RecentAnalyses", () => {
         status: "ready",
         createdAt: "2026-01-01T12:00:00.000Z",
       },
-      { id: "demo", name: "Demo", status: "ready", createdAt: "2026-01-01" },
     ]);
 
     render(
@@ -44,7 +43,6 @@ describe("RecentAnalyses", () => {
     const items = screen.getAllByTestId("recent-analysis-item");
     expect(items).toHaveLength(2);
     expect(screen.getByText(/Novší spis/i)).toBeInTheDocument();
-    expect(screen.queryByText(/^Demo$/i)).not.toBeInTheDocument();
   });
 
   it("hides section when empty", async () => {

@@ -48,17 +48,6 @@ export default defineConfig({
               },
             },
           },
-          {
-            urlPattern: /\/api\/analyses\/demo/i,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "demo-analyses-cache",
-              expiration: {
-                maxEntries: 5,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
-              },
-            },
-          },
         ],
       },
     }),

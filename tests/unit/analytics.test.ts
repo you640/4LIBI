@@ -61,12 +61,11 @@ describe("analytics", () => {
   });
 
   it("tracks contradiction_viewed with contradiction id", () => {
-    trackContradictionViewed({ contradictionId: "t1", isDemo: false });
+    trackContradictionViewed({ contradictionId: "t1" });
     expect(console.log).toHaveBeenCalledWith(
       `[Analytics] ${ANALYTICS_EVENTS.CONTRADICTION_VIEWED}`,
       expect.objectContaining({
         contradiction_id: "t1",
-        is_demo: false,
       })
     );
   });

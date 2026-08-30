@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEMO_ANALYSIS } from "../../src/types";
+import { travelConflictFixture } from "../fixtures/analysis";
 import {
   appendIntegrityFooter,
   buildCourtDossierExport,
@@ -25,7 +25,7 @@ describe("dossierExport", () => {
   });
 
   it("builds court dossier export with hash", async () => {
-    const { markdown, hash } = await buildCourtDossierExport(DEMO_ANALYSIS);
+    const { markdown, hash } = await buildCourtDossierExport(travelConflictFixture);
     expect(markdown).toContain("# FORENZNÁ ZPRÁVA");
     expect(markdown).toContain(hash);
     expect(hash).toHaveLength(64);
@@ -41,10 +41,10 @@ describe("alibiGeospatial", () => {
     expect(timestampToHHMM("2023-05-15T14:25:00Z")).toMatch(/^\d{2}:\d{2}$/);
   });
 
-  it("derives BA-KE geospatial pair from demo analysis", () => {
-    const rozpor = DEMO_ANALYSIS.timeline.find((e) => e.id === "T002");
+  it("derives geospatial pair from conflicting timeline events", () => {
+    const rozpor = travelConflictFixture.timeline.find((e) => e.id === "T002");
     expect(rozpor).toBeTruthy();
-    const pair = deriveGeospatialCheck(DEMO_ANALYSIS, rozpor!);
+    const pair = deriveGeospatialCheck(travelConflictFixture, rozpor!);
     expect(pair).toBeTruthy();
     expect(pair!.locA.toLowerCase()).toContain("ko");
     expect(pair!.locB.toLowerCase()).toContain("bratislava");

@@ -19,7 +19,6 @@
 | Alibi | Geospatial check + SVG mapa bodov A/B |
 | Cross-exam | Otázky cez `/api/cross-exam` (Mistral alebo lokálne šablóny) |
 | LEA trust | Audit log, Markdown/PDF export, PageRank graf, PNG share karta |
-| Demo BA–KE | Offline aha-moment bez API (`/spisy/demo`) |
 | **PWA** | Inštalovateľná aplikácia, precache assetov, auto-update SW |
 
 ### PWA funkcie
@@ -30,7 +29,6 @@
 | Service Worker | Áno (Workbox, `registerType: autoUpdate`) |
 | Inštalácia (Add to Home Screen) | Áno — `display: standalone` |
 | Offline UI shell | Áno — precache JS/CSS/HTML/ikony |
-| Offline demo spis | Áno — klientsky `DEMO_ANALYSIS` + SW cache pre demo API pattern |
 | Offline Sherlock analýza | **Nie** — vyžaduje Hono API + `MISTRAL_API_KEY` |
 
 ---
@@ -137,7 +135,6 @@ const updateSW = registerSW({
 | `includeAssets` | ikony + `manifest.json` | Extra assety do precache |
 | `workbox.globPatterns` | `**/*.{js,css,html,svg,png,ico,woff2}` | Precache build výstupu |
 | Runtime: Google Fonts | `CacheFirst` (1 rok) | Fonty z CDN |
-| Runtime: `/api/analyses/demo` | `StaleWhileRevalidate` (7 dní) | Demo API pattern |
 
 ### Manifest
 
@@ -153,17 +150,16 @@ Zdroje: [`public/manifest.json`](public/manifest.json) + generovaný manifest z 
 | `lang` | `sk` |
 | `start_url` | `/` |
 | Ikony | `/forenzdetectiv.png` 512×512 (`any` + `maskable`) |
-| Shortcuts | Sherlock (`/sherlock`), Demo |
+| Shortcuts | Sherlock (`/sherlock`) |
 
 HTML (`index.html`) dopĺňa `apple-touch-icon`, `mobile-web-app-capable` a `theme-color`.
 
 ### Offline limity (dôležité)
 
 1. **Shell UI** a statické assety — offline po prvej návšteve (produkčný build + SW).
-2. **Demo BA–KE** — funguje bez siete (klientsky fixture).
-3. **Cache výsledkov analýz** — IndexedDB (`src/lib/db.ts`), nie localStorage; **PDF súbory sa offline neukladajú**.
-4. **Upload / Mistral / fronta / CRUD spisov** — vyžadujú online API.
-5. Dev režim (`npm run dev`) má SW obmedzene; plnú PWA overujte cez `npm run build && npm run preview` (HTTPS/localhost).
+2. **Cache výsledkov analýz** — IndexedDB (`src/lib/db.ts`), nie localStorage; **PDF súbory sa offline neukladajú**.
+3. **Upload / Mistral / fronta / CRUD spisov** — vyžadujú online API.
+4. Dev režim (`npm run dev`) má SW obmedzene; plnú PWA overujte cez `npm run build && npm run preview` (HTTPS/localhost).
 
 ### Privacy fronty (BullMQ)
 
@@ -187,7 +183,7 @@ ALIBI-MSITRAL/
 │   ├── main.tsx            # React root + registerSW
 │   ├── App.tsx             # Router, analytics/UTM init
 │   ├── index.css
-│   ├── types.ts            # Analysis, demo fixture, domain types
+│   ├── types.ts            # Analysis a domain types
 │   ├── pages/              # Route-level pages
 │   │   ├── HomePage.tsx
 │   │   ├── SherlockPage.tsx
@@ -195,7 +191,7 @@ ALIBI-MSITRAL/
 │   │   ├── CaseLayout.tsx
 │   │   └── ProfilePage.tsx
 │   ├── components/
-│   │   ├── home/           # DemoCaseRunner, QuickTip
+│   │   ├── home/           # QuickTip
 │   │   ├── sherlock/       # SherlockAnalyzer, RecentAnalyses
 │   │   ├── case/           # RozporyTab, AlibiMap, PdfExportDialog, …
 │   │   ├── m3/             # Material-3 shell (AppBar, NavBar, BottomSheet)
@@ -226,7 +222,7 @@ ALIBI-MSITRAL/
 
 | Cesta | Popis |
 |-------|-------|
-| `/` | Home — hero, demo BA–KE, CTA |
+| `/` | Home — hero, CTA na Sherlock |
 | `/sherlock` | Upload + analýza + nedávne analýzy |
 | `/spisy` | Zoznam spisov |
 | `/spisy/:id/rozpory` | Rozpory, alibi mapa, cross-exam |
@@ -234,7 +230,6 @@ ALIBI-MSITRAL/
 | `/spisy/:id/graf` | Graf + PageRank |
 | `/spisy/:id/osoby` | Osoby |
 | `/spisy/:id/audit` | Audit log spisu |
-| `/spisy/demo/*` | Offline demo |
 | `/profil` | O aplikácii + globálny audit |
 
 ---
@@ -286,7 +281,6 @@ Väčšina endpointov pod `/api/*` prechádza **rate limítom** a **auth middlew
 
 | Komponent | Props | Úloha |
 |-----------|-------|-------|
-| `DemoCaseRunner` | `onDone: () => void` | ~1.5 s loading → navigácia na demo rozpory |
 | `AlibiMap` | `result: TravelFeasibilityResult \| null \| undefined` | SVG mapa A/B alebo empty state |
 | `PdfExportDialog` | `open`, `onClose`, `analysis`, `caseId` | Markdown download + print, SHA-256 |
 | `AlibiShareCard` | `analysis`, `onClose` | Virálna karta + PNG export |
@@ -366,7 +360,7 @@ Artefakty: [`Dockerfile`](./Dockerfile), [`railway.toml`](./railway.toml), [`ver
 |--------|------|
 | Hono API + Prisma + BullMQ | ✅ |
 | PWA (manifest + Workbox + autoUpdate) | ✅ |
-| Home + Demo + Sherlock história | ✅ |
+| Home + Sherlock história | ✅ |
 | Alibi mapa + cross-exam UI | ✅ |
 | BullMQ privacy wipe + page-aware chunker | ✅ |
 | IndexedDB cache analýz (`idb`) | ✅ |

@@ -8,10 +8,9 @@ test.describe("fullstack API", () => {
     expect(body.status).toBe("ok");
   });
 
-  test("home demo works against real stack", async ({ page }) => {
+  test("home CTA opens Sherlock against real stack", async ({ page }) => {
     await page.goto("/");
-    await page.getByTestId("home-cta-demo").click();
-    await expect(page).toHaveURL(/\/spisy\/demo\/rozpory/, { timeout: 15_000 });
-    await expect(page.getByTestId("rozpory-list")).toBeVisible();
+    await page.getByTestId("home-cta-upload").click();
+    await expect(page).toHaveURL(/\/sherlock/, { timeout: 15_000 });
   });
 });

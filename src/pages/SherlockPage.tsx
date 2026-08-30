@@ -81,7 +81,6 @@ export function SherlockPage() {
           count: contradictionCount,
           hasAlibiConflict,
           caseId: result.id,
-          isDemo: false,
         });
       }
 

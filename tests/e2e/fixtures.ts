@@ -37,7 +37,7 @@ async function mockApiRoutes(page: Page): Promise<void> {
             minTravelMinutesRequired: 250,
             requiredSpeedKmh: 533,
             severity: "critical",
-            explanation: "Fyzikálne nemožný presun BA–KE (mock).",
+            explanation: "Fyzikálne nemožný presun medzi mestami (mock).",
             locationA: "Košice",
             locationB: "Bratislava",
           },

@@ -104,7 +104,7 @@ describe("Sherlock Prompt Construction & JSON Sanitization", () => {
 
   it("úspešne overí a rozparsuje platnú LLM odpoveď pomocou parseAnalysisResponse", () => {
     const response = JSON.stringify({
-      metadata: { document_name: "Kauza BA-KE", language: "sk" },
+      metadata: { document_name: "Kauza Test", language: "sk" },
       persons: [{ id: "p1", name: "Jozef", role: "podozrivý", description: null, aliases: [] }],
       evidence: [],
       relationships: [],

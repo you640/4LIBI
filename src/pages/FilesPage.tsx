@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRightIcon, FilesIcon, TrashIcon, UploadIcon } from "../components/Icons";
 import { listAnalyses, deleteAnalysis, deleteAllAnalyses, renameAnalysis, type AnalysisSummary } from "../lib/api";
-import { DEMO_CASE_ID } from "../lib/demoCase";
 import { AppBar } from "../components/m3/AppBar";
 import { rememberLastCaseId } from "../lib/caseUtils";
 
@@ -257,7 +256,7 @@ export function FilesPage() {
             <FilesIcon className="w-8 h-8 text-outline mx-auto mb-3" />
             <p className="text-sm font-medium text-surface-on mb-1">Zatiaľ prázdne</p>
             <p className="text-xs text-outline leading-relaxed mb-4">
-              Nahrajte spis v Sherlock alebo vyskúšajte demo BA-KE alibi bez API.
+              Nahrajte spis v Sherlock a rozpory uvidíte v tomto zozname.
             </p>
             <div className="flex flex-col gap-2 items-center">
               <button
@@ -266,17 +265,6 @@ export function FilesPage() {
                 className="m3-btn-filled !w-auto px-6"
               >
                 Nahrať výpoveď (Sherlock)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  rememberLastCaseId(DEMO_CASE_ID);
-                  navigate(`/spisy/${DEMO_CASE_ID}/rozpory`);
-                }}
-                className="m3-btn-outlined !w-auto px-6"
-                data-testid="files-empty-demo"
-              >
-                Vyskúšať demo spis (BA-KE)
               </button>
             </div>
           </div>

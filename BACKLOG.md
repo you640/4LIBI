@@ -69,7 +69,7 @@
 
 ### Tasks
 - [x] **T1.4.1** `trackContradictionDetected` po úspešnej analýze (`SherlockPage`)
-- [x] **T1.4.2** Demo path s `isDemo: true`
+- [x] **T1.4.2** ~~Demo path~~ odstránené
 - [x] **T1.4.3** Žiadne PII v properties (hash `caseId`)
 - [x] **T1.4.4** `npm test` + lint/typecheck PASS
 
@@ -96,21 +96,12 @@
 
 ### Tasks
 - [x] **T2.1.1** `HomePage.tsx` — CTA „Nahrať výpoveď“
-- [x] **T2.1.2** Secondary CTA demo BA-KE
 - [x] **T2.1.3** Proof strip
-- [x] **T2.1.4** Demo → `/spisy/demo/rozpory`
 - [ ] **T2.1.5** BulkScanButton farba (ak existuje)
 
-## S2.2 Demo spis BA-KE (aha moment)
-- **Priorita:** P1
-- **Odhad:** 40–60 h
-- **Status:** `DONE` (SK demo)
-
-### Tasks
-- [x] **T2.2.1** 1.5s loading simulácia
-- [x] **T2.2.2** Demo → rozpory tab
-- [ ] **T2.2.3** CZ `praha-brno` demo
-- [x] **T2.2.4** `DemoCaseRunner.tsx`
+## S2.2 canned spis
+- **Priorita:** —
+- **Status:** `REMOVED`
 
 ## S2.3 Onboarding — 3 slides → 1 tip
 - **Priorita:** P1
@@ -140,7 +131,7 @@
 |-------|---------|----------|
 | Background | slate-950 `#020617` | App shell, Play screenshots |
 | Surface | slate-900 + white/5 border | Cards, panels |
-| Primary CTA | amber-500 `#f59e0b` | Scan, demo, export |
+| Primary CTA | amber-500 `#f59e0b` | Scan, export |
 | Accent / links | blue-400 `#60a5fa` | Graf, entity chips |
 | Danger / rozpor | red-500 `#ef4444` | Red flags, contradictions |
 | Success | emerald-400 | Done, alibi OK |
@@ -159,15 +150,14 @@
 - **Odhad:** 16–24 h · 0 €
 - **Status:** `DONE`
 
-### 8 kľúčových eventov
-1. `demo_launched`
-2. `case_created`
-3. `contradiction_detected`
-4. `contradiction_viewed`
-5. `pdf_exported`
-6. `alibi_checked`
-7. `error_occurred`
-8. `analysis_started`
+### Kľúčové eventy
+1. `case_created`
+2. `contradiction_detected`
+3. `contradiction_viewed`
+4. `pdf_exported`
+5. `alibi_checked`
+6. `error_occurred`
+7. `analysis_started`
 
 ### Tasks
 - [x] **T3.1.1** 8 helperov v `src/lib/analytics.ts`
@@ -415,7 +405,7 @@
 ### Tasks
 - [ ] **T7.2.1** `pl.json` slovník
 - [ ] **T7.2.2** PL Play listing
-- [ ] **T7.2.3** PL demo spis
+- [ ] **T7.2.3** PL sample case (nie canned SK spis)
 
 ## S7.3 3 jazyky s najväčším potenciálom
 1. **čeština** (CZ — najbližšia, nízka bariéra)
@@ -436,7 +426,7 @@
 - [ ] **T8.1.2** YouTube Shorts: alibi/rozpor 15s videá
 - [ ] **T8.1.3** Infografika: "Checklist forenznej analýzy"
 - [ ] **T8.1.4** Facebook právnické skupiny
-- [ ] **T8.1.5** Webinar: demo spis BA-KE
+- [ ] **T8.1.5** Webinar: analýza spisov
 - [ ] **T8.1.6** SharedCase CTA loop
 - [ ] **T8.1.7** Podcast outreach (true-crime, právo)
 
@@ -451,7 +441,7 @@
 - [ ] **T8.2.3** LinkedIn job titles 20% (detektív, vyšetrovateľ, advokát)
 - [ ] **T8.2.4** Creative test 10%
 - [ ] **T8.2.5** Optimalizácia na `contradiction_viewed` event, nie install
-- [ ] **T8.2.6** Retarget D+1 demo, D+14 churn
+- [ ] **T8.2.6** Retarget D+1, D+14 churn
 - [ ] **T8.2.7** Kill-CPI threshold (business rozhodnutie)
 - [ ] **T8.2.8** Dokumentovať v `docs/GOOGLE_ADS.md`
 
@@ -653,7 +643,6 @@
 - [ ] Odstrániť debug instrumentation
 - [ ] Wire PostHog 8 eventov + UTM
 - [ ] Wire audit logging
-- [ ] Fix demo flow (contradictions, nie map)
 - [ ] Move `@sentry/react` + `posthog-js` do `dependencies`
 - [ ] Sherlock analyzer MVP (upload → analýza → timeline)
 
@@ -708,7 +697,7 @@
 | 7 | Sherlock analyzer MVP | S4.1–S4.6 | P0 | 120h | 0 |
 | 8 | GitHub Actions CI green | S11.1 | P0 | 4h | 0 |
 | 9 | Empty Home + 1-tap CTA | S2.1 | P0 | 24h | 0 |
-| 10 | Demo BA-KE + aha moment | S2.2 | P1 | 50h | 0 |
+| 10 | ~~canned spis~~ | S2.2 | — | — | removed |
 | 11 | Onboarding 1 tip + lazy-load | S2.3 | P1 | 32h | 0 |
 | 12 | BulkScanButton label | S2.4 | P1 | 0.5h | 0 |
 | 13 | TWA + ASO + ikona | S6.1, S6.2 | P2 | 40h | 25 |

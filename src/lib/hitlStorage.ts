@@ -38,7 +38,7 @@ export function setHitlStatus(
   }
 
   // Asynchrónna synchronizácia do PostgreSQL (iba v browser prostredí)
-  if (typeof window !== "undefined" && analysisId && analysisId !== "demo") {
+  if (typeof window !== "undefined" && analysisId) {
     fetch(apiPath(`/api/analyses/${encodeURIComponent(analysisId)}/hitl`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -50,7 +50,7 @@ export function setHitlStatus(
 }
 
 export async function syncHitlFromServer(analysisId: string): Promise<Record<string, HitlStatus>> {
-  if (typeof window === "undefined" || !analysisId || analysisId === "demo") return {};
+  if (typeof window === "undefined" || !analysisId) return {};
 
   try {
     const res = await fetch(apiPath(`/api/analyses/${encodeURIComponent(analysisId)}/hitl`));

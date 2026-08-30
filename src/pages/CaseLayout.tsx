@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useParams } from "react-router-dom";
 import { getAnalysis } from "../lib/api";
 import type { Analysis } from "../types";
-import { DEMO_CASE_ID, getDemoAnalysis, isDemoCaseId } from "../lib/demoCase";
 import { CaseHeader } from "../components/m3/CaseHeader";
 import { AppBar } from "../components/m3/AppBar";
 import { SearchBar } from "../components/m3/SearchBar";
@@ -25,12 +24,6 @@ export type CaseOutletContext = { bumpHitl: () => void };
 
 export function CaseLayout() {
   const { id = "" } = useParams();
-
-  if (isDemoCaseId(id)) {
-    rememberLastCaseId(DEMO_CASE_ID);
-    return <LoadedCase analysisId={DEMO_CASE_ID} analysis={getDemoAnalysis()} />;
-  }
-
   return <RemoteCase key={id} id={id} />;
 }
 

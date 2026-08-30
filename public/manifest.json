@@ -34,12 +34,6 @@
       "short_name": "Sherlock",
       "url": "/sherlock",
       "description": "Analyzovať dokumenty"
-    },
-    {
-      "name": "Demo spis",
-      "short_name": "Demo",
-      "url": "/sherlock?demo=true",
-      "description": "Vyskúšať demo spis (BA-KE alibi)"
     }
   ]
 }

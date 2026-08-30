@@ -8,16 +8,11 @@ Webová aplikácia pre forenznú analýzu spisov: nahráte PDF/TXT, AI (Mistral)
 
 ---
 
-## Rýchly štart (bez API kľúča)
-
-**Demo režim** funguje offline — nepotrebujete prihlásenie ani upload:
+## Rýchly štart
 
 1. Otvorte beta URL (napr. `https://tvoj-projekt.vercel.app`)
-2. Prejdite na **Demo spis** alebo `/spisy/demo`
-3. Kliknite záložky **Rozpory**, **Časová os**, **Graf**
-4. V Rozporoch uvidíte odznaky **`s. 12`**, **`s. 25`** pri citátoch zo spisu
-
-Demo používa predpripravené dáta v prehliadači (IndexedDB cache po prvom načítaní).
+2. Na home kliknite **Nahrať výpoveď**
+3. Po analýze otvorte záložky **Rozpory**, **Časová os**, **Graf**
 
 ---
 
@@ -82,7 +77,7 @@ Pri hlásení prosím uveďte:
 3. **URL** stránky (bez citlivých údajov v spise)
 4. **Prehliadač** a zariadenie (Chrome / Safari / mobil)
 5. **Screenshot** alebo chybová hláška
-6. Či ste v **demo** alebo **reálnej analýze**
+6. Či ide o **reálnu analýzu** (upload) a aký súbor ste nahrávali (bez citlivého obsahu)
 
 **Kam poslať:** e-mail / Slack / GitHub Issues — podľa inštrukcií od administrátora bety.
 

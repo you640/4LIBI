@@ -1,23 +1,9 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "../components/m3/AppBar";
 import { QuickTip } from "../components/home/QuickTip";
-import { DemoCaseRunner } from "../components/home/DemoCaseRunner";
 
 export function HomePage() {
   const navigate = useNavigate();
-  const [runningDemo, setRunningDemo] = useState(false);
-
-  if (runningDemo) {
-    return (
-      <div className="flex flex-col min-h-0 flex-1">
-        <AppBar title="ForenzDetectiv" />
-        <div className="app-content px-4 pt-2">
-          <DemoCaseRunner onDone={() => setRunningDemo(false)} />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
@@ -45,14 +31,6 @@ export function HomePage() {
             onClick={() => navigate("/sherlock")}
           >
             Nahrať výpoveď (foto/PDF)
-          </button>
-          <button
-            type="button"
-            className="m3-btn-outlined w-full"
-            data-testid="home-cta-demo"
-            onClick={() => setRunningDemo(true)}
-          >
-            Vyskúšať demo spis (BA-KE alibi)
           </button>
         </div>
 

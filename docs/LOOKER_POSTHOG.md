@@ -6,11 +6,10 @@ ForenzDetectiv meria **Weekly Active Investigators** s aspoň 1× `contradiction
 
 | Event | Kedy sa posiela |
 |-------|-----------------|
-| `demo_launched` | Klik na demo BA-KE (Home) |
 | `analysis_started` | Upload + Spustiť Sherlock |
 | `case_created` | Po úspešnom vytvorení analýzy |
-| `contradiction_detected` | Po analýze / demo load (počet rozporov) |
-| `contradiction_viewed` | Otvorenie RozporyTab / demo rozporu |
+| `contradiction_detected` | Po analýze (počet rozporov) |
+| `contradiction_viewed` | Otvorenie detailu rozporu |
 | `pdf_exported` | Export súdneho PDF |
 | `alibi_checked` | Geospatial alibi check |
 | `error_occurred` | Chyba analýzy / API |
@@ -32,7 +31,7 @@ Session recording je **vypnuté** (GDPR).
 
 1. Vytvor projekt na [eu.posthog.com](https://eu.posthog.com)
 2. Skopíruj Project API Key do `VITE_POSTHOG_KEY`
-3. Spusti app, urob demo flow → over v **Live events**
+3. Spusti app, urob upload flow → over v **Live events**
 
 ## Looker Studio (S3.3)
 
@@ -40,7 +39,7 @@ Session recording je **vypnuté** (GDPR).
 2. Looker Studio → Create → BigQuery / Sheets connector
 3. **Scorecard:** Unique users / týždeň kde `event = contradiction_viewed`
 4. **Funnel:**
-   - `demo_launched`
+   - `analysis_started`
    - → `case_created`
    - → `contradiction_detected`
    - → `contradiction_viewed`

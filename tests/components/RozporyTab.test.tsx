@@ -93,7 +93,6 @@ describe("RozporyTab", () => {
     await user.click(screen.getByRole("button", { name: /Alibi Impossible Karta/i }));
     expect(trackContradictionViewed).toHaveBeenCalledWith({
       contradictionId: "t1",
-      isDemo: false,
     });
   });
 

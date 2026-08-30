@@ -26,7 +26,7 @@ export function RecentAnalyses() {
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        setItems(sorted.filter((r) => r.id !== "demo").slice(0, 5));
+        setItems(sorted.slice(0, 5));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

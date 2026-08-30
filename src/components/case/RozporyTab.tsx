@@ -1,8 +1,7 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useCaseContext } from "../../lib/caseContext";
 import { contradictionEvents, resolveEventPage } from "../../lib/caseUtils";
-import { isDemoCaseId } from "../../lib/demoCase";
 import { trackContradictionViewed, trackAlibiChecked } from "../../lib/analytics";
 import { auditHitlChange } from "../../lib/auditLog";
 import {
@@ -76,18 +75,6 @@ export function RozporyTab() {
   const [, setTick] = useState(0);
 
   const events = useMemo(() => contradictionEvents(analysis), [analysis]);
-  const demoViewTracked = useRef(false);
-
-  useEffect(() => {
-    if (!isDemoCaseId(analysisId) || demoViewTracked.current || events.length === 0) {
-      return;
-    }
-    demoViewTracked.current = true;
-    trackContradictionViewed({
-      contradictionId: events[0].id,
-      isDemo: true,
-    });
-  }, [analysisId, events]);
 
   const refresh = () => {
     setTick((n) => n + 1);
@@ -143,7 +130,6 @@ export function RozporyTab() {
   const openContradictionSheet = (event: TimelineEvent) => {
     trackContradictionViewed({
       contradictionId: event.id,
-      isDemo: isDemoCaseId(analysisId),
     });
     setSheetEvent(event);
     setShowShareCard(false);

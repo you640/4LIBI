@@ -38,7 +38,7 @@ export const minimalAnalysisFixture: Analysis = {
     {
       id: "t1",
       title: "Rozpor v alibi",
-      description: "Nemožné alibi medzi BA a KE",
+      description: "Nemožné alibi medzi Bratislavou a Košicami",
       timestamp: "2026-01-10T10:00:00.000Z",
       location: "Bratislava",
       tags: ["rozpor", "alibi"],
@@ -51,6 +51,56 @@ export const minimalAnalysisFixture: Analysis = {
     },
   ],
   contradictions: [],
+};
+
+/** Two-city travel conflict for geospatial / dossier tests. */
+export const travelConflictFixture: Analysis = {
+  metadata: {
+    document_name: "Vyšetrovací spis č. 123/2023",
+    language: "sk",
+    page_count: 3,
+    upload_date: "2023-05-16T10:00:00Z",
+  },
+  persons: [
+    {
+      id: "P001",
+      name: "Ján Novák",
+      role: "obvinený",
+      type: "podozrivý",
+      description: "Obvinený z krádeže.",
+    },
+  ],
+  evidence: [],
+  relationships: [],
+  timeline: [
+    {
+      id: "T001",
+      timestamp: "2023-05-15T08:00:00Z",
+      title: "Začiatok pracovného dňa",
+      description: "Podľa výpovede bol celý deň v Košiciach.",
+      location: "Košice",
+      persons_involved: ["P001"],
+      evidence_links: [],
+      tags: ["alibi"],
+      source_text: "Boli sme v Košiciach celý deň, od 8:00 do 20:00.",
+      confidence: 0.7,
+      approximate: false,
+    },
+    {
+      id: "T002",
+      timestamp: "2023-05-15T13:40:00Z",
+      title: "Mýtny lístok D1",
+      description: "Prechod mýtnou bránou smerom z Bratislavy do Košíc.",
+      location: "Diaľnica D1, Bratislava",
+      persons_involved: ["P001"],
+      evidence_links: [],
+      tags: ["rozpor", "alibi"],
+      source_text: "Mýtny lístok na diaľnici D1, čas 13:40",
+      confidence: 1.0,
+      approximate: false,
+      page: 12,
+    },
+  ],
 };
 
 export function analysisJsonResponse(): string {

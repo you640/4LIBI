@@ -126,17 +126,17 @@ describe("API analyses CRUD", () => {
     const patch = await app.request(`/api/analyses/${created.id}`, {
       method: "PATCH",
       headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Premenovany spis BA-KE" }),
+      body: JSON.stringify({ name: "Premenovany spis Kauza 01" }),
     });
     expect(patch.status).toBe(200);
     const updated = await patch.json();
-    expect(updated.name).toBe("Premenovany spis BA-KE");
+    expect(updated.name).toBe("Premenovany spis Kauza 01");
 
     const get = await app.request(`/api/analyses/${created.id}`, {
       headers: authHeaders(),
     });
     const row = await get.json();
-    expect(row.name).toBe("Premenovany spis BA-KE");
+    expect(row.name).toBe("Premenovany spis Kauza 01");
   });
 });
 

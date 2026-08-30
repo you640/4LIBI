@@ -6,7 +6,6 @@ import { withUtm } from "./utmTracker";
 let initialized = false;
 
 export const ANALYTICS_EVENTS = {
-  DEMO_LAUNCHED: "demo_launched",
   CASE_CREATED: "case_created",
   CONTRADICTION_DETECTED: "contradiction_detected",
   CONTRADICTION_VIEWED: "contradiction_viewed",
@@ -92,10 +91,6 @@ export function identifyUser(userId: string, properties?: Record<string, unknown
   }
 }
 
-export function trackDemoLaunched(properties?: { source?: string }) {
-  trackEvent(ANALYTICS_EVENTS.DEMO_LAUNCHED, properties ?? {});
-}
-
 export function trackCaseCreated(properties: {
   fileCount: number;
   source: "sandbox" | "upload";
@@ -107,7 +102,6 @@ export function trackContradictionDetected(properties: {
   count: number;
   hasAlibiConflict: boolean;
   caseId?: string;
-  isDemo?: boolean;
 }) {
   trackEvent(ANALYTICS_EVENTS.CONTRADICTION_DETECTED, {
     count: properties.count,
@@ -115,17 +109,14 @@ export function trackContradictionDetected(properties: {
     case_id: properties.caseId
       ? `case_${properties.caseId.substring(0, 8)}`
       : undefined,
-    is_demo: properties.isDemo ?? false,
   });
 }
 
 export function trackContradictionViewed(properties?: {
   contradictionId?: string;
-  isDemo?: boolean;
 }) {
   trackEvent(ANALYTICS_EVENTS.CONTRADICTION_VIEWED, {
     contradiction_id: properties?.contradictionId,
-    is_demo: properties?.isDemo ?? false,
   });
 }
 

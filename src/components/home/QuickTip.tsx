@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { hasSeenQuickTip, markQuickTipSeen } from "../../lib/demoCase";
+import { hasSeenQuickTip, markQuickTipSeen } from "../../lib/quickTip";
 
 export function QuickTip() {
   const [visible, setVisible] = useState(() => !hasSeenQuickTip());
@@ -21,8 +21,8 @@ export function QuickTip() {
         Tip na štart
       </p>
       <p className="text-xs text-outline m-0 leading-relaxed">
-        Nahrajte výpoveď alebo vyskúšajte demo spis BA-KE — rozpory uvidíte za pár
-        sekúnd s citátom zo zdroja.
+        Nahrajte výpoveď v Sherlock — rozpory uvidíte za pár sekúnd s citátom zo
+        zdroja.
       </p>
       <button
         type="button"

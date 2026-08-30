@@ -24,7 +24,7 @@ describe("alibiMapMarkers", () => {
     expect(model.emptyReason).toMatch(/Spusti overenie/i);
   });
 
-  it("maps BA–KE result to two markers", () => {
+  it("maps two city result to two markers", () => {
     const model = buildAlibiMapModel(sampleResult);
     expect(model.emptyReason).toBeNull();
     expect(model.markers).toHaveLength(2);

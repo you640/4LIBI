@@ -19,7 +19,7 @@ describe("FilesPage", () => {
     vi.mocked(renameAnalysis).mockReset();
   });
 
-  it("shows empty state with demo CTA", async () => {
+  it("shows empty state with Sherlock CTA", async () => {
     vi.mocked(listAnalyses).mockResolvedValue([]);
     render(
       <MemoryRouter>
@@ -29,14 +29,15 @@ describe("FilesPage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("files-empty-state")).toBeInTheDocument();
     });
-    expect(screen.getByTestId("files-empty-demo")).toBeInTheDocument();
+    expect(screen.queryByTestId("files-empty-demo")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Nahrať výpoveď/i })).toBeInTheDocument();
   });
 
   it("renders analysis list", async () => {
     vi.mocked(listAnalyses).mockResolvedValue([
       {
         id: "a1",
-        name: "Spis BA-KE",
+        name: "Spis 2023-01",
         status: "ready",
         createdAt: "2026-01-15T12:00:00.000Z",
       },
@@ -47,7 +48,7 @@ describe("FilesPage", () => {
       </MemoryRouter>
     );
     await waitFor(() => {
-      expect(screen.getByText(/Spis BA-KE/i)).toBeInTheDocument();
+      expect(screen.getByText(/Spis 2023-01/i)).toBeInTheDocument();
     });
   });
 
@@ -56,7 +57,7 @@ describe("FilesPage", () => {
     vi.mocked(listAnalyses).mockResolvedValue([
       {
         id: "a1",
-        name: "Spis BA-KE",
+        name: "Spis 2023-01",
         status: "ready",
         createdAt: "2026-01-15T12:00:00.000Z",
       },
@@ -75,7 +76,7 @@ describe("FilesPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Spis BA-KE/i)).toBeInTheDocument();
+      expect(screen.getByText(/Spis 2023-01/i)).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId("files-rename-btn"));

@@ -176,7 +176,6 @@ npm run test:e2e:full
 - [ ] Vercel `VITE_API_URL` ukazuje na Railway API
 - [ ] `ALLOWED_ORIGINS` obsahuje Vercel doménu
 - [ ] Sherlock upload → analýza → `/spisy/:id/rozpory` funguje
-- [ ] Demo `/spisy/demo/rozpory` funguje offline (bez API)
 - [ ] `npm run test:all` prešlo v CI
 - [ ] Žiadne secrets v gite (len `.env.example`)
 
