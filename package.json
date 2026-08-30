@@ -24,7 +24,7 @@
     "test:ci": "vitest run --project unit --project api --project components --coverage",
     "test:e2e": "playwright test",
     "test:e2e:full": "playwright test --config=playwright.fullstack.config.ts",
-    "pretest:all": "docker compose up -d postgres redis",
+    "pretest:all": "node scripts/check-env.mjs",
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
     "health-check": "node scripts/health-check.mjs",
     "test:mistral": "node scripts/test-mistral.mjs",

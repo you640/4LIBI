@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Full-stack E2E — real Vite + Hono API (no /api mocks).
- * Requires Postgres + Redis (docker compose up -d postgres redis).
+ * Requires Postgres + Redis (Cloud Railway or local instance).
  *
  *   npm run test:e2e:full
  */

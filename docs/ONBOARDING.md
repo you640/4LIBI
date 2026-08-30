@@ -34,16 +34,14 @@ Otvor `.env` a doplň minimálne tieto hodnoty:
 
 ---
 
-## 3. Spusti PostgreSQL + Redis (Docker)
+## 3. Over pripojenie na Cloud Databázu & Redis
 
 ```bash
-docker compose up -d postgres redis
-
-# Overiť že bežia:
-docker compose ps
+# Otestuj pripojenie na live Railway databázu a Redis:
+node scripts/test-cloud-db.mjs
 ```
 
-Výstup by mal ukázať `postgres` a `redis` ako `Up`.
+Výstup overí `PostgreSQL pripojený!` a `Redis pripojený! (PONG)`. Žiadny lokálny Docker nie je potrebný.
 
 ---
 
