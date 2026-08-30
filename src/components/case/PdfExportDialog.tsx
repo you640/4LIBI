@@ -21,16 +21,29 @@ export function PdfExportDialog({
   analysis,
   caseId,
 }: PdfExportDialogProps) {
+  if (!open) return null;
+
+  return (
+    <PdfExportDialogContent
+      onClose={onClose}
+      analysis={analysis}
+      caseId={caseId}
+    />
+  );
+}
+
+function PdfExportDialogContent({
+  onClose,
+  analysis,
+  caseId,
+}: Omit<PdfExportDialogProps, "open">) {
   const [hash, setHash] = useState<string | null>(null);
   const [markdown, setMarkdown] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     buildCourtDossierExport(analysis)
       .then(({ markdown: md, hash: h }) => {
         if (cancelled) return;
@@ -48,9 +61,7 @@ export function PdfExportDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, analysis]);
-
-  if (!open) return null;
+  }, [analysis]);
 
   const safeName = analysis.metadata.document_name
     .replace(/[^\w\s-]/g, "")
