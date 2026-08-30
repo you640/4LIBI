@@ -1,6 +1,7 @@
 import { callMistralApi } from "./mistralApi";
 import { chunkDocument, mergeAnalysisResults } from "./documentChunker";
 import { extractTextFromBytes } from "./extractDocumentText";
+import { mapWithAdaptiveConcurrency } from "./adaptiveConcurrency";
 import {
   SHERLOCK_SYSTEM_PROMPT,
   buildUserPrompt,
@@ -71,14 +72,26 @@ async function analyzeText(
     `[Sherlock] Text rozdelený na ${chunks.length} blokov pre analýzu (celkovo ${text.length} znakov)`
   );
 
-  const partialAnalyses: Analysis[] = [];
+  const chunkResults = await mapWithAdaptiveConcurrency(
+    chunks,
+    1, // start concurrency: 1
+    2, // max concurrency: 2 (safe bulk limit to avoid rate-limiting Mistral)
+    async (chunk) => {
+      console.log(
+        `[Sherlock] Analyzujem blok ${chunk.index + 1}/${chunk.totalChunks} (strana cca ${chunk.likelyPage}, ${chunk.text.length} znakov)…`
+      );
+      return analyzeSingleChunk(chunk.text, documentName, apiKey);
+    }
+  );
 
-  for (const chunk of chunks) {
-    console.log(
-      `[Sherlock] Analyzujem blok ${chunk.index + 1}/${chunk.totalChunks} (strana cca ${chunk.likelyPage}, ${chunk.text.length} znakov)…`
-    );
-    const chunkResult = await analyzeSingleChunk(chunk.text, documentName, apiKey);
-    partialAnalyses.push(chunkResult);
+  const partialAnalyses: Analysis[] = [];
+  for (const res of chunkResults) {
+    if (res.ok && res.res) {
+      partialAnalyses.push(res.res);
+    } else {
+      console.error("[Sherlock] Chyba pri analýze bloku:", res.err);
+      throw res.err instanceof Error ? res.err : new Error("Chyba pri analýze bloku.");
+    }
   }
 
   const merged = mergeAnalysisResults(partialAnalyses, documentName);

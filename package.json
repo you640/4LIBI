@@ -4,10 +4,10 @@
   "version": "0.2.0-beta",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n api,web -c cyan,magenta \"tsx watch server/index.ts\" \"vite\"",
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"node scripts/check-env.mjs && tsx watch server/index.ts\" \"vite\"",
     "predev": "node scripts/free-dev-ports.mjs 5175 5176 && node scripts/ensure-db.mjs",
     "dev:web": "vite",
-    "dev:api": "tsx watch server/index.ts",
+    "dev:api": "node scripts/check-env.mjs && tsx watch server/index.ts",
     "predev:api": "node scripts/free-dev-ports.mjs 5176 && node scripts/ensure-db.mjs",
     "dev:db": "prisma dev --name forenzdetectiv --detach",
     "build": "tsc -b && vite build",
