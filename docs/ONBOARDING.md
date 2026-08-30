@@ -1,6 +1,6 @@
 # 🚀 ForenzDetectiv — Onboarding pre nového vývojára
 
-> Čas potrebný: ~30 minút | Predpoklady: Node 20+, Docker, Git, PowerShell / bash
+> Čas potrebný: ~30 minút | Predpoklady: Node 22+, Git, PowerShell / bash, prístup k Railway PG + Redis
 
 ---
 
@@ -25,8 +25,8 @@ Otvor `.env` a doplň minimálne tieto hodnoty:
 | Premenná | Kde ju získaš |
 |---|---|
 | `MISTRAL_API_KEY` | [console.mistral.ai](https://console.mistral.ai/) → API Keys |
-| `DATABASE_URL` | Krok 3 (Docker) — nechaj predvolenú hodnotu |
-| `REDIS_URL` | Krok 3 (Docker) — nechaj predvolenú hodnotu |
+| `DATABASE_URL` | Railway PostgreSQL (plugin Variables) |
+| `REDIS_URL` | Railway Redis (plugin Variables) |
 | `JWT_SECRET` | Vygeneruj: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `API_KEY` | Ľubovoľný reťazec min. 16 znakov |
 
@@ -83,7 +83,7 @@ Otvorí sa:
 ## 7. Overiť funkčnosť
 
 ```bash
-# Unit + component testy (204 testov)
+# Unit + api + component testy (203)
 npm test
 
 # TypeScript kontrola
@@ -142,8 +142,8 @@ railway link
 railway up
 ```
 
-> **ALLOWED_ORIGINS** musí obsahovať Vercel URL:
-> `https://tvoj-projekt.vercel.app,https://forenzdetectiv.sk`
+> **ALLOWED_ORIGINS** (ak používate `VITE_API_URL`):  
+> `https://forenzdetectiv-web.vercel.app,https://forenzdetectiv.sk`
 
 ---
 
@@ -153,17 +153,20 @@ railway up
 # Prihlás sa do Vercel CLI
 npx vercel login
 
-# Deploy
+# Link na projekt forenzdetectiv-web a produkčný deploy
+npx vercel link --yes --project forenzdetectiv-web
 npx vercel --prod
 ```
 
-Nastav tieto Environment Variables vo Vercel dashboarde:
+Live frontend: https://forenzdetectiv-web.vercel.app
+
+`VITE_API_URL` na Verceli **nie je povinné** — `vercel.json` posiela `/api` na Railway. Voliteľne:
 
 | Premenná | Hodnota |
 |---|---|
-| `VITE_API_URL` | URL Railway API (napr. `https://api-production-3466e.up.railway.app`) |
+| `VITE_API_URL` | Railway API, len ak chcete priamy call (vtedy CORS) |
 | `VITE_POSTHOG_KEY` | PostHog EU project key |
-| `VITE_SENTRY_DSN` | Sentry DSN (voliteľné) |
+| `VITE_SENTRY_DSN` | Sentry DSN |
 
 ---
 
@@ -171,11 +174,10 @@ Nastav tieto Environment Variables vo Vercel dashboarde:
 
 | Chyba | Riešenie |
 |---|---|
-| `DATABASE_URL` connection refused | `docker compose up -d postgres` |
-| `REDIS_URL` connection refused | `docker compose up -d redis` |
+| `DATABASE_URL` / `REDIS_URL` refused | Over `node scripts/test-cloud-db.mjs` a hodnoty v `.env` |
 | `Mistral API 401` | Skontroluj `MISTRAL_API_KEY` v `.env` |
-| `CORS error` vo Verceli | Pridaj Vercel URL do `ALLOWED_ORIGINS` v Railway |
-| `Prisma P1001` | Databáza nebeží — spusti Docker |
+| `CORS error` vo Verceli | Buď nechaj `VITE_API_URL` prázdne, alebo pridaj origin do `ALLOWED_ORIGINS` |
+| `Prisma P1001` | Databáza nedostupná — Railway status / connection string |
 | Port 5176 obsadený | `node scripts/free-dev-ports.mjs 5176` |
 
 ---

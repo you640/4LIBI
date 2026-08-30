@@ -2,7 +2,7 @@
 
 ForenzDetectiv meria **Weekly Active Investigators** s aspoň 1× `contradiction_viewed`.
 
-## 8 kľúčových eventov
+## Kľúčové eventy (7)
 
 | Event | Kedy sa posiela |
 |-------|-----------------|

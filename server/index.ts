@@ -6,7 +6,8 @@ import crypto from "node:crypto";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { prisma, logAuditAction } from "./prisma";
+import { prisma, logAuditAction, ensureUser } from "./prisma";
+import { ensureUserIdentity } from "./identity";
 import type { Prisma } from "../generated/client";
 import { createOCRService } from "./ocrService";
 import { evaluateTravelFeasibility } from "./geospatialEngine";
@@ -84,6 +85,10 @@ app.get("/api/health", (c) => {
 
 app.use("/api/*", rateLimitMiddleware(60, 60 * 1000));
 app.use("/api/*", authMiddleware);
+app.use("/api/*", async (c, next) => {
+  await ensureUserIdentity(prisma, c.get("ownerId"), c.get("userEmail"));
+  await next();
+});
 
 app.onError((err, c) => {
   console.error(err);
@@ -126,6 +131,14 @@ app.post("/api/analyze", async (c) => {
   const userEmail = c.get("userEmail");
   const fallbackName =
     entries.length === 1 ? entries[0].name : `${entries.length} dokumentov`;
+
+  if (ownerId) {
+    try {
+      await ensureUser(ownerId, userEmail);
+    } catch (err) {
+      console.warn("[/api/analyze] ensureUser warning:", err);
+    }
+  }
 
   // Log audit action
   await logAuditAction(ownerId, "analysis_start", {
@@ -797,14 +810,7 @@ app.post("/api/audit-logs", async (c) => {
     return c.json({ error: "Chýba action" }, 400);
   }
 
-  const log = await prisma.auditLog.create({
-    data: {
-      action,
-      userId: ownerId,
-      details: details ? (details as unknown as Prisma.InputJsonValue) : undefined,
-    },
-  });
-
+  const log = await logAuditAction(ownerId, action, details);
   return c.json({ success: true, log });
 });
 

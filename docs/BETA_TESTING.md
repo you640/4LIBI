@@ -10,7 +10,7 @@ Webová aplikácia pre forenznú analýzu spisov: nahráte PDF/TXT, AI (Mistral)
 
 ## Rýchly štart
 
-1. Otvorte beta URL (napr. `https://tvoj-projekt.vercel.app`)
+1. Otvorte https://forenzdetectiv-web.vercel.app
 2. Na home kliknite **Nahrať výpoveď**
 3. Po analýze otvorte záložky **Rozpory**, **Časová os**, **Graf**
 
@@ -30,7 +30,7 @@ Aplikácia posiela kľúč v hlavičke `X-API-Key` pri každom volaní API.
 
 ```bash
 curl -H "X-API-Key: VAS_BETA_KLUC" \
-  https://API-URL.up.railway.app/api/health
+  https://forenzdetectiv-web.vercel.app/api/health
 ```
 
 Očakávaná odpoveď: `{"status":"ok",...}`
@@ -64,7 +64,7 @@ Očakávaná odpoveď: `{"status":"ok",...}`
 | Uploady na serveri | Súbory na Railway môžu zmiznúť po redeploy — výsledok analýzy je v DB/cache |
 | Rate limit | ~60 požiadaviek / minútu na IP |
 | OCR | Vyžaduje `MISTRAL_API_KEY` na serveri; veľké skeny môžu trvať dlhšie |
-| Offline | Demo áno; nová analýza vyžaduje internet a API |
+| Offline | UI shell áno (PWA); nová analýza vyžaduje internet a API |
 
 ---
 
@@ -101,4 +101,4 @@ Pre technické chyby API môže admin skontrolovať Railway logy a `GET /api/hea
 
 ---
 
-*Verzia dokumentu: v0.2.0-beta — 2026-08*
+*Verzia dokumentu: v0.2.0-beta — 2026-08-30*

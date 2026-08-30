@@ -15,24 +15,26 @@ ForenzDetectiv je **full-stack AI forenzná platforma** s oddeleným frontendom 
 │   React 18 + TypeScript + Vite 7 + Tailwind + Material You     │
 │   PWA (Workbox) — offline asset caching                        │
 │                                                                 │
-│   Route: /          → HomePage (RecentAnalyses)                │
-│   Route: /sherlock  → SherlockPage (upload + AI analýza)       │
-│   Route: /case/:id  → CaseLayout (GrafTab, Timeline, ...)      │
-│   Route: /files     → FilesPage                                │
+│   Route: /                 → HomePage (CTA → Sherlock)         │
+│   Route: /sherlock         → SherlockPage (upload + AI)        │
+│   Route: /spisy            → FilesPage                         │
+│   Route: /spisy/:id/*      → CaseLayout (rozpory, timeline, …) │
+│   Route: /profil           → ProfilePage                       │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTPS REST API
-                           │ VITE_API_URL=https://api-prod.railway.app
+                           │ same-origin /api  (Vercel rewrite)
+                           │ voliteľne VITE_API_URL → Railway
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │               RAILWAY (Backend — Docker Container)              │
 │                                                                 │
-│   Hono API Server (server/index.ts) — port 5176               │
+│   Hono API Server (server/index.ts) — PORT (Railway / 8080)   │
 │   ├── POST /api/analyze        → BullMQ Queue                  │
 │   ├── GET  /api/analyses       → Prisma → PostgreSQL           │
 │   ├── GET  /api/analyses/:id   → Prisma → PostgreSQL           │
 │   ├── GET  /api/analyses/:id/progress → BullMQ                 │
-│   ├── POST /api/cases/:id/cross-examine → Mistral AI           │
-│   └── GET  /api/health         → DB + Redis + Mistral check    │
+│   ├── POST /api/cross-exam     → Mistral alebo lokálne šablóny │
+│   ├── POST /api/geospatial/check → travel feasibility          │
+│   └── GET  /api/health         → status + mistralConfigured    │
 │                                                                 │
 │   BullMQ Worker (server/queue.ts)                              │
 │   ├── Spracúva PDF úlohy asynchrónne                          │
@@ -104,7 +106,7 @@ ForenzDetectiv je **full-stack AI forenzná platforma** s oddeleným frontendom 
 | Routing | React Router v7 | SPA navigácia, lazy loading |
 | State | React Context (`CaseContext`) | Zdieľaný stav spisu |
 | HTTP | `src/lib/api.ts` | Wrapper pre fetch volania |
-| AI API Base | `src/lib/apiBase.ts` | `getApiBase()` → `VITE_API_URL` |
+| AI API Base | `src/lib/apiBase.ts` | `getApiBase()` — prázdne = same-origin `/api` |
 | Offline | IndexedDB (`src/lib/db.ts`) | Cache analýz pre offline |
 | PWA | Workbox (vite-plugin-pwa) | Service Worker, offline assets |
 | Monitoring | Sentry `@sentry/react` | Error tracking + Source Maps |
@@ -142,35 +144,32 @@ ForenzDetectiv je **full-stack AI forenzná platforma** s oddeleným frontendom 
 
 ### Vercel (Frontend)
 
+Live: https://forenzdetectiv-web.vercel.app — projekt `forenzdetectiv-web`.
+
 | Premenná | Povinná | Hodnota v produkcii |
 |---|---|---|
-| `VITE_API_URL` | 🔴 ÁNO | `https://api-production-xxxx.up.railway.app` |
+| `VITE_API_URL` | 🟡 | Prázdne = rewrite `/api` → Railway. Inak absolútna Railway URL. |
 | `VITE_POSTHOG_KEY` | 🟡 | PostHog EU project key |
 | `VITE_POSTHOG_HOST` | 🟡 | `https://eu.i.posthog.com` |
 | `VITE_SENTRY_DSN` | 🟡 | Sentry DSN |
 | `VITE_SENTRY_ENV` | 🟡 | `production` |
-| `VITE_STRIPE_PUBLIC_KEY` | 🟡 | Stripe public key |
+| `VITE_STRIPE_PUBLIC_KEY` | 🟡 | Stripe public key (zatiaľ nepoužité) |
 
 ---
 
 ## Lokálny vývoj
 
 ```bash
-# 1. Infraštruktúra
-docker compose up -d postgres redis
-
-# 2. Databáza
-npx prisma migrate dev
-
-# 3. Spustenie (backend + frontend súčasne)
+cp .env.example .env          # DATABASE_URL, REDIS_URL, kľúče
+node scripts/test-cloud-db.mjs
+npx prisma migrate deploy     # ak treba na cieľovej DB
 npm run dev
-# → API:     http://localhost:5176
-# → Frontend: http://localhost:5175
+# → API:      http://127.0.0.1:5176
+# → Frontend: http://127.0.0.1:5175
 
-# 4. Testy
-npm test              # unit + component testy
-npm run typecheck     # TypeScript kontrola
-npm run lint          # ESLint
+npm test              # 203 testov (unit + api + components)
+npm run typecheck
+npm run lint
 ```
 
 ---
@@ -182,16 +181,14 @@ git push main
     │
     ▼
 GitHub Actions (.github/workflows/ci.yml)
-├── npm test (204 testov)
+├── npm test (unit + api + components)
 ├── npm run typecheck
 ├── npm run lint
 └── npm run build
     │
-    ▼ (ak všetko zelené)
-Railway auto-deploy (Dockerfile)
-    │
     ▼
-Vercel auto-deploy (vite build)
+Railway: Docker image (Dockerfile) + Prisma migrate
+Vercel:  projekt forenzdetectiv-web (vercel.json rewrite /api)
 ```
 
 ---
@@ -209,7 +206,7 @@ Vercel auto-deploy (vite build)
 
 ## Súvisiace dokumenty
 
-- [`docs/DEPLOY.md`](./DEPLOY.md) — Postup nasadenia na Railway + Vercel
+- [`docs/DEPLOY.md`](./DEPLOY.md) — Live URL a nasadenie Railway + Vercel
 - [`docs/ONBOARDING.md`](./ONBOARDING.md) — Príručka pre nového vývojára
 - [`docs/BETA_TESTING.md`](./BETA_TESTING.md) — Beta testovanie
-- [`BACKLOG.md`](../BACKLOG.md) — Roadmapa a TODO
+- [`BACKLOG.md`](../BACKLOG.md) — Roadmapa

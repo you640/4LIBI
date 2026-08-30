@@ -1,5 +1,7 @@
 # ForenzDetectiv - Complete Security & Architecture Overhaul
 
+> **Poznámka (2026-08-30):** Toto je historický zápis z audit overhaul. Aktuálny stav je v [`README.md`](./README.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) a [`docs/DEPLOY.md`](./docs/DEPLOY.md).
+
 ## 🎯 Summary
 
 This document describes the comprehensive implementation of all critical fixes from the audit report. All changes have been applied from **A to Z** as requested.

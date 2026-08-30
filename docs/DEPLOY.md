@@ -1,76 +1,73 @@
 # Beta deploy — ForenzDetectiv
 
-Tento návod popisuje **odporúčaný stack** pre verejnú beta:
+Aktuálny stack (2026-08-30):
 
-| Komponent | Hosting | Prečo |
-|-----------|---------|-------|
-| **Frontend** (Vite SPA) | [Vercel](https://vercel.com) | Statický `dist/`, CDN, preview URL |
-| **API** (Hono + BullMQ worker) | [Railway](https://railway.app) | Docker, Postgres + Redis pluginy, jeden projekt |
-| **Postgres** | Railway PostgreSQL | Prisma migrácie |
-| **Redis** | Railway Redis | BullMQ fronta pre Sherlock |
+| Komponent | Hosting | Stav |
+|-----------|---------|------|
+| **Frontend** (Vite SPA) | [Vercel](https://vercel.com) — projekt `forenzdetectiv-web` | live |
+| **API** (Hono + BullMQ) | [Railway](https://railway.app) — Docker (`Dockerfile`) | live |
+| **Postgres** | Railway PostgreSQL | live |
+| **Redis** | Railway Redis | live |
 
-Alternatívy: Render.com, Fly.io — rovnaký `Dockerfile`, iné env UI.
+---
+
+## Live URL
+
+| Služba | URL |
+|--------|-----|
+| Frontend | https://forenzdetectiv-web.vercel.app |
+| API | https://api-production-3466e.up.railway.app |
+| Health (Railway) | https://api-production-3466e.up.railway.app/api/health |
+| Health (cez Vercel `/api`) | https://forenzdetectiv-web.vercel.app/api/health |
+
+```bash
+curl -sS https://forenzdetectiv-web.vercel.app/api/health
+# {"status":"ok","version":"0.2.0-beta","mistralConfigured":true,...}
+```
 
 ---
 
 ## Architektúra
 
 ```
-Browser → https://beta.forenzdetectiv.sk (Vercel)
-              ↓ VITE_API_URL
-         https://api-xxx.up.railway.app (Hono :PORT)
+Browser → https://forenzdetectiv-web.vercel.app
+              ↓ same-origin /api  (vercel.json rewrite)
+         https://api-production-3466e.up.railway.app/api/*
               ↓
          Postgres + Redis + Mistral API
 ```
 
 Lokálne: Vite proxy `/api` → `127.0.0.1:5176` (žiadny `VITE_API_URL`).
 
+Na Verceli **nie je povinné** `VITE_API_URL`. Ak je prázdne, frontend volá `/api/...` a Vercel to prepíše na Railway — bez CORS. Ak `VITE_API_URL` nastavíte, prehliadač ide priamo na Railway a `ALLOWED_ORIGINS` musí obsahovať Vercel origin.
+
 ---
 
 ## 1. Railway — API + Postgres + Redis
 
-### 1.1 Nový projekt
+Image: [`Dockerfile`](../Dockerfile) (`node:22-alpine`, `prisma migrate deploy`, `tsx server/index.ts`). Health: `GET /api/health`.
 
-1. [railway.app](https://railway.app) → **New Project**
-2. **Add PostgreSQL** → skopíruj `DATABASE_URL`
-3. **Add Redis** → skopíruj `REDIS_URL`
-4. **Deploy from GitHub** → tento repozitár, branch `main`
-5. Railway deteguje `Dockerfile` + `railway.toml`
+### Premenné (Railway → Service → Variables)
 
-### 1.2 Premenné prostredia (Railway → Service → Variables)
+| Premenná | Povinné |
+|----------|---------|
+| `DATABASE_URL` | Áno |
+| `REDIS_URL` | Áno |
+| `MISTRAL_API_KEY` | Áno (reálna analýza) |
+| `JWT_SECRET` (min. 32 znakov) | Áno (auth fail-closed) |
+| `API_KEY` | Áno (auth fail-closed) |
+| `ALLOWED_ORIGINS` | Áno — aspoň Vercel origin, ak používate priamy `VITE_API_URL` |
+| `HOST` | `0.0.0.0` |
+| `PORT` | Railway inject |
+| `NODE_ENV` | `production` |
 
-| Premenná | Príklad | Povinné |
-|----------|---------|---------|
-| `DATABASE_URL` | z PostgreSQL pluginu | Áno |
-| `REDIS_URL` | z Redis pluginu | Áno |
-| `MISTRAL_API_KEY` | z console.mistral.ai | Áno (reálna analýza) |
-| `JWT_SECRET` | min. 32 znakov | Áno (ak `ENABLE_AUTH` ≠ false) |
-| `API_KEY` | náhodný reťazec | Áno (ak auth zapnutá) |
-| `ALLOWED_ORIGINS` | `https://beta.forenzdetectiv.sk,https://tvoj-projekt.vercel.app` | Áno |
-| `HOST` | `0.0.0.0` | Áno (Docker default) |
-| `PORT` | Railway nastaví automaticky | Nie (Railway inject) |
-| `NODE_ENV` | `production` | Odporúčané |
+**Produkcia:** nenastavujte `ENABLE_AUTH=false`.
 
-**Produkcia — auth:** nenastavujte `ENABLE_AUTH=false`. Klient posiela `x-api-key` alebo JWT (dev: `x-owner-id` len lokálne).
+Voliteľné: `MISTRAL_BACKUP_API_KEY`, `MISTRAL_OCR_API_KEY`, `SENTRY_AUTH_TOKEN`.
 
-**Voliteľné:** `MISTRAL_BACKUP_API_KEY`, `MISTRAL_OCR_API_KEY`, `SENTRY_AUTH_TOKEN`
+### Migrácie
 
-### 1.3 Health check po deployi
-
-Railway volá `GET /api/health` (pozri `railway.toml`).
-
-Manuálne (nahraďte URL):
-
-```bash
-curl -sS https://YOUR-RAILWAY-APP.up.railway.app/api/health
-# Očakávané: {"status":"ok","timestamp":"...","version":"1.0.0"}
-
-node scripts/health-check.mjs https://YOUR-RAILWAY-APP.up.railway.app/api/health
-```
-
-### 1.4 Migrácie
-
-Spúšťajú sa automaticky v `Dockerfile` CMD:
+Bežia v `CMD` image:
 
 ```bash
 npx prisma migrate deploy && npx tsx server/index.ts
@@ -80,120 +77,68 @@ npx prisma migrate deploy && npx tsx server/index.ts
 
 ## 2. Vercel — frontend
 
-### 2.1 Import projektu
+Projekt: `viandmos-projects/forenzdetectiv-web`.
 
-1. [vercel.com](https://vercel.com) → Import Git repozitár
-2. Framework: **Vite**
-3. Build: `npm run build`
-4. Output: `dist`
+Konfigurácia je v [`vercel.json`](../vercel.json):
 
-### 2.2 Environment Variables (Vercel → Settings)
+- Framework Vite, `npm run build`, output `dist`
+- Rewrite `/api/:path*` → Railway API
+- SPA fallback na `index.html` (`/spisy`, `/sherlock`, …)
+- Cache: `index.html` / `sw.js` bez cache, `/assets` immutable
 
-| Premenná | Hodnota |
-|----------|---------|
-| `VITE_API_URL` | `https://YOUR-RAILWAY-APP.up.railway.app` (bez `/` na konci) |
-| `VITE_POSTHOG_KEY` | PostHog EU project key (voliteľné) |
-| `VITE_POSTHOG_HOST` | `https://eu.i.posthog.com` |
-| `VITE_SENTRY_DSN` | Sentry DSN (voliteľné) |
-| `VITE_SENTRY_ENV` | `staging` alebo `production` |
+### Environment Variables
 
-**Dôležité:** Po zmene `VITE_*` spustite **Redeploy** — premenné sa vkladajú pri build time.
+Na aktuálnom projekte **žiadne** `VITE_*` (API ide cez rewrite). Voliteľne:
 
-### 2.3 CORS
+| Premenná | Účel |
+|----------|------|
+| `VITE_API_URL` | Priamy call na Railway (vtedy treba CORS) |
+| `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` | PostHog EU |
+| `VITE_SENTRY_DSN` / `VITE_SENTRY_ENV` | Sentry |
 
-V Railway nastavte `ALLOWED_ORIGINS` na presnú Vercel URL (aj preview domény ak potrebujete):
-
-```
-https://forenzdetectiv.vercel.app,https://beta.forenzdetectiv.sk
-```
-
-### 2.4 SPA routing
-
-`vercel.json` v repozitári presmeruje ne-API cesty na `index.html` (`/spisy`, `/sherlock`, …).
+Po zmene `VITE_*` vždy **Redeploy** (build-time inlining).
 
 ---
 
 ## 3. Sentry (produkcia)
 
-1. Vytvorte projekt na [sentry.io](https://sentry.io)
-2. Skopírujte **Client DSN** → `VITE_SENTRY_DSN` vo Vercel
-3. Nastavte `VITE_SENTRY_ENV=staging`
-4. (Voliteľné) Source maps: `SENTRY_AUTH_TOKEN` v CI — pozri `.env.example`
-
-Bez DSN je Sentry no-op (aplikácia funguje normálne).
+Bez DSN je Sentry no-op. Ak zapínate: Client DSN → `VITE_SENTRY_DSN`, `VITE_SENTRY_ENV=production`.
 
 ---
 
 ## 4. PostHog (North Star)
 
-1. EU projekt na [posthog.com](https://eu.posthog.com)
-2. `VITE_POSTHOG_KEY` + `VITE_POSTHOG_HOST=https://eu.i.posthog.com` vo Vercel
-3. North Star event: `contradiction_viewed` — pozri `docs/LOOKER_POSTHOG.md`
-
-Bez kľúča: analytics padá na `console.log` (dev-friendly).
+Event `contradiction_viewed` — pozri [`LOOKER_POSTHOG.md`](./LOOKER_POSTHOG.md). Bez kľúča: `console.log`.
 
 ---
 
-## 5. GitHub Actions — voliteľný deploy
+## 5. CI
 
-Workflow `.github/workflows/deploy.yml` je **manual-only** (`workflow_dispatch`).
-
-Potrebné GitHub Secrets:
-
-| Secret | Popis |
-|--------|-------|
-| `RAILWAY_TOKEN` | Railway API token |
-| `DATABASE_URL` | (pre migrácie mimo Railway) |
-| `REDIS_URL` | |
-| `MISTRAL_API_KEY` | |
-
-Odporúčaný postup pre beta: deploy API cez Railway GitHub integráciu, frontend cez Vercel — bez secrets v CI.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml): lint, typecheck, `npm test` (unit + api + components), build. Deploy ide cez Vercel Git integráciu a Railway Git/Docker, nie cez manuálny `deploy.yml`.
 
 ---
 
-## 6. Lokálny full-stack test
+## 6. Lokálny full-stack
 
 ```bash
-docker compose up -d postgres redis
-cp .env.example .env   # doplň MISTRAL_API_KEY ak testuješ analýzu
+cp .env.example .env   # DATABASE_URL, REDIS_URL, MISTRAL_API_KEY, JWT_SECRET, API_KEY
+node scripts/test-cloud-db.mjs
 npm run dev            # web :5175 + api :5176
-
-# Health
 node scripts/health-check.mjs
-
-# E2E s mock API (CI default)
+npm test
 npm run test:e2e
-
-# E2E proti reálnemu API (vyžaduje PG + Redis)
-npm run test:e2e:full
 ```
 
 ---
 
-## 7. Checklist pred beta URL
+## 7. Checklist pred zdieľaním beta URL
 
-- [ ] `curl` na `/api/health` vracia `status: ok`
-- [ ] Vercel `VITE_API_URL` ukazuje na Railway API
-- [ ] `ALLOWED_ORIGINS` obsahuje Vercel doménu
-- [ ] Sherlock upload → analýza → `/spisy/:id/rozpory` funguje
-- [ ] `npm run test:all` prešlo v CI
-- [ ] Žiadne secrets v gite (len `.env.example`)
-
----
-
-## 8. Staging URL (placeholder)
-
-Po prvom deployi doplňte sem:
-
-| Služba | URL |
-|--------|-----|
-| Frontend (Vercel) | `https://YOUR-PROJECT.vercel.app` |
-| API (Railway) | `https://YOUR-APP.up.railway.app` |
-| Health | `https://YOUR-APP.up.railway.app/api/health` |
-
-```bash
-curl -sS https://YOUR-APP.up.railway.app/api/health | jq .
-```
+- [x] `GET /api/health` vracia `status: ok` (Railway aj cez Vercel rewrite)
+- [x] Frontend na https://forenzdetectiv-web.vercel.app
+- [x] SPA routing `/sherlock`, `/spisy`
+- [ ] Sherlock upload → analýza → `/spisy/:id/rozpory` (overiť s API kľúčom)
+- [ ] `ALLOWED_ORIGINS` na Railway obsahuje Vercel origin, ak zapnete `VITE_API_URL`
+- [x] Žiadne secrets v gite (len `.env.example`)
 
 ---
 
@@ -201,12 +146,12 @@ curl -sS https://YOUR-APP.up.railway.app/api/health | jq .
 
 | Symptóm | Riešenie |
 |---------|----------|
-| CORS error v prehliadači | Skontrolujte `ALLOWED_ORIGINS` na API |
-| Sherlock „API nedostupné“ | `VITE_API_URL` + redeploy Vercel |
-| Analýza visí vo fronte | Redis `REDIS_URL`, worker logy v Railway |
+| CORS error | Buď nechajte `VITE_API_URL` prázdne (rewrite), alebo doplňte origin do `ALLOWED_ORIGINS` |
+| Sherlock „API nedostupné“ | Health cez `/api/health` na Vercel URL; Railway logy |
+| Analýza visí vo fronte | `REDIS_URL`, worker logy |
 | 503 databáza | `DATABASE_URL`, `npx prisma migrate deploy` |
-| 401 na API | Nastavte `x-api-key` alebo JWT; v dev `ENABLE_AUTH=false` |
+| 401 na API | `x-api-key` / JWT; lokálne `ENABLE_AUTH=false` |
 
 ---
 
-*Posledná aktualizácia: 2026-08 — stack Hono + Prisma + BullMQ (nie Convex).*
+*Posledná aktualizácia: 2026-08-30 — Hono + Prisma + BullMQ; Vercel rewrite `/api` → Railway.*

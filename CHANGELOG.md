@@ -4,6 +4,20 @@ Všetky významné zmeny v projekte ForenzDetectiv.
 
 Formát je založený na [Keep a Changelog](https://keepachangelog.com/sk/1.1.0/).
 
+## [Unreleased] — 2026-08-30
+
+### Odstránené
+
+- Canned offline spis (Home CTA, `/spisy/demo`, `DEMO_ANALYSIS`, `DemoCaseRunner`)
+- `docs/todo.md` (agent prompt guide)
+
+### Zmenené
+
+- Vercel projekt **`forenzdetectiv-web`**: live https://forenzdetectiv-web.vercel.app
+- `vercel.json` — SPA routing + rewrite `/api/*` na Railway (`api-production-3466e.up.railway.app`)
+- Dokumentácia (README, DEPLOY, ARCHITECTURE, ONBOARDING, BETA_TESTING) zosúladená so stavom: bez Docker Compose, bez `railway.toml`, 203 testov, Vite 7 / React Router 7
+- Analytics: event `demo_launched` zrušený (7 eventov)
+
 ## [0.2.0-beta] — 2026-08-29
 
 ### Pridané
@@ -29,8 +43,8 @@ Formát je založený na [Keep a Changelog](https://keepachangelog.com/sk/1.1.0/
 
 ### Poznámky pre deploy
 
-- Frontend: Vercel (`VITE_API_URL` → Railway API)
-- API: Railway Docker (`Dockerfile` + `railway.toml`, health `/api/health`)
+- Frontend: Vercel (`forenzdetectiv-web`, `/api` rewrite → Railway)
+- API: Railway Docker (`Dockerfile`, health `/api/health`)
 - Uploady na Railway sú ephemerálne — pre perzistenciu zváž Volume alebo object storage
 
 ## [0.1.0] — skoršie verzie

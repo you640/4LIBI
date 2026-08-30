@@ -37,8 +37,8 @@
 
 | Vrstva | Technológia |
 |--------|-------------|
-| UI | React 18, TypeScript, React Router 6, Tailwind CSS 3 |
-| Build | Vite 5, `vite-plugin-pwa`, Workbox 7 |
+| UI | React 18, TypeScript, React Router 7, Tailwind CSS 3 |
+| Build | Vite 7, `vite-plugin-pwa`, Workbox 7 |
 | API | **Hono** (`@hono/node-server`), port `5176` |
 | Dáta | Prisma 7 + PostgreSQL (`pg` adapter) |
 | Fronta | BullMQ + Redis (ioredis) |
@@ -59,7 +59,7 @@
 ### Požiadavky
 
 - **Node.js 22+**
-- **Docker Desktop** (Postgres 16 + Redis 7)
+- Platné `DATABASE_URL` a `REDIS_URL` (Railway cloud alebo vlastný Postgres + Redis)
 
 ### Lokálny vývoj
 
@@ -68,8 +68,8 @@ git clone https://github.com/you640/4LIBI.git
 cd 4LIBI
 npm install
 cp .env.example .env
-# Doplň MISTRAL_API_KEY (povinné pre reálnu Sherlock analýzu)
-docker compose up -d postgres redis
+# Doplň DATABASE_URL, REDIS_URL, MISTRAL_API_KEY, JWT_SECRET, API_KEY
+node scripts/test-cloud-db.mjs   # overenie PG + Redis
 npm run dev
 ```
 
@@ -90,7 +90,7 @@ Lokálne **nepotrebujete** `VITE_API_URL` — Vite proxy mapuje `/api` → `http
 | `npm run dev` | API + web (dev) |
 | `npm run build` | `tsc -b` + produkčný Vite build (`dist/`) |
 | `npm run preview` | Náhľad buildu (port 4173) |
-| `npm run test:all` | `pretest:all` (Docker PG+Redis) → unit/api/components → integration → e2e |
+| `npm run test:all` | `pretest:all` (`check-env`) → unit/api/components → integration → e2e |
 | `npm run test:e2e:full` | E2E proti reálnemu API |
 | `npm run typecheck` / `npm run lint` | Typy / ESLint |
 | `node scripts/health-check.mjs` | Health probe |
@@ -98,13 +98,11 @@ Lokálne **nepotrebujete** `VITE_API_URL` — Vite proxy mapuje `/api` → `http
 ### Testy
 
 ```bash
-npm run test:all
-# ekvivalent:
-# docker compose up -d postgres redis
-# npm run test && npm run test:integration && npm run test:e2e
+npm test                 # 203 testov: unit + api + components
+npm run test:all         # + integration + e2e (vyžaduje DATABASE_URL / REDIS_URL)
 ```
 
-Integračné testy preferujú Docker Postgres na `:5432` (`forenz:forenz`). Lokálny `.env` s Prisma dev (`:51214`) môže ostať pre `npm run dev`.
+Integračné testy používajú `DATABASE_URL` z `.env` (Railway alebo lokálny Postgres). `scripts/ensure-integration-db.mjs` pripraví testovaciu schému.
 
 ---
 
@@ -209,13 +207,11 @@ ALIBI-MSITRAL/
 │   └── geospatialEngine.ts
 ├── prisma/                 # Schema + migrácie
 ├── tests/                  # unit / api / components / integration / e2e
-├── scripts/                # ensure-db, health-check, …
-├── docs/                   # DEPLOY, LOOKER_POSTHOG, todo
+├── scripts/                # ensure-db, health-check, test-cloud-db, …
+├── docs/                   # DEPLOY, ARCHITECTURE, ONBOARDING, …
 ├── vite.config.ts          # Vite + PWA + proxy
-├── docker-compose.yml      # postgres + redis
-├── Dockerfile
-├── railway.toml
-└── vercel.json
+├── Dockerfile              # Railway API image
+└── vercel.json             # SPA + /api rewrite na Railway
 ```
 
 ### Routing
@@ -318,7 +314,7 @@ Skopíruj [`.env.example`](.env.example) → `.env`.
 | `ALLOWED_ORIGINS` | server | CORS (Vercel domény) |
 | `JWT_SECRET` / `API_KEY` | server | Auth |
 | `ENABLE_AUTH` | server | `false` len lokálne — **nikdy v produkcii** |
-| `VITE_API_URL` | build (Vercel) | Absolute URL Railway API |
+| `VITE_API_URL` | build (voliteľné) | Absolútna URL API; prázdne = same-origin `/api` (lokálny proxy / Vercel rewrite) |
 | `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` | build | PostHog EU |
 | `VITE_SENTRY_DSN` | build | Sentry (no-op bez DSN) |
 
@@ -328,18 +324,20 @@ Mistral kľúče sú **výhradne server-side**.
 
 ## Beta deploy
 
-Frontend → **Vercel**, API + Postgres + Redis → **Railway**.
+| Služba | URL |
+|--------|-----|
+| Frontend | https://forenzdetectiv-web.vercel.app |
+| API (Railway) | https://api-production-3466e.up.railway.app |
+| Health (priamo) | https://api-production-3466e.up.railway.app/api/health |
+| Health (cez Vercel rewrite) | https://forenzdetectiv-web.vercel.app/api/health |
+
+Vercel projekt: `viandmos-projects/forenzdetectiv-web`. `vercel.json` posiela `/api/*` na Railway, takže **`VITE_API_URL` na Verceli nie je povinné** — prehliadač volá same-origin `/api`.
+
+Railway: `DATABASE_URL`, `REDIS_URL`, `MISTRAL_API_KEY`, `JWT_SECRET`, `API_KEY`, `ALLOWED_ORIGINS`.
 
 Podrobný návod: **[docs/DEPLOY.md](./docs/DEPLOY.md)**
 
-```bash
-curl -sS https://YOUR-APP.up.railway.app/api/health
-```
-
-Vercel: `VITE_API_URL=https://YOUR-APP.up.railway.app`  
-Railway: `ALLOWED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `MISTRAL_API_KEY`, …
-
-Artefakty: [`Dockerfile`](./Dockerfile), [`railway.toml`](./railway.toml), [`vercel.json`](./vercel.json).
+Artefakty: [`Dockerfile`](./Dockerfile), [`vercel.json`](./vercel.json).
 
 ---
 
@@ -347,28 +345,31 @@ Artefakty: [`Dockerfile`](./Dockerfile), [`railway.toml`](./railway.toml), [`ver
 
 | Súbor | Obsah |
 |-------|-------|
-| [docs/DEPLOY.md](./docs/DEPLOY.md) | Beta deploy krok za krokom |
+| [docs/DEPLOY.md](./docs/DEPLOY.md) | Live URL, Vercel rewrite, Railway |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Stack, tok dát, env |
+| [docs/ONBOARDING.md](./docs/ONBOARDING.md) | Setup vývojára |
 | [docs/LOOKER_POSTHOG.md](./docs/LOOKER_POSTHOG.md) | North Star metriky / funnel |
-| [BACKLOG.md](./BACKLOG.md) | Stav DONE / TODO / IN_PROGRESS |
-| [docs/todo.md](./docs/todo.md) | Agent prompty 1–6 (DoD) |
+| [docs/BETA_TESTING.md](./docs/BETA_TESTING.md) | Návod pre beta testerov |
+| [BACKLOG.md](./BACKLOG.md) | Roadmapa |
 
 ---
 
-## Stav projektu (2026-08)
+## Stav projektu (2026-08-30)
 
 | Oblasť | Stav |
 |--------|------|
 | Hono API + Prisma + BullMQ | ✅ |
 | PWA (manifest + Workbox + autoUpdate) | ✅ |
-| Home + Sherlock história | ✅ |
+| Home (CTA → Sherlock) + história spisov | ✅ |
 | Alibi mapa + cross-exam UI | ✅ |
 | BullMQ privacy wipe + page-aware chunker | ✅ |
 | IndexedDB cache analýz (`idb`) | ✅ |
 | PostHog wiring + LEA trust (audit, PDF, graf) | ✅ |
-| CI + `test:all` (unit/api/components/integration/e2e) | ✅ |
-| Deploy docs + Docker | ✅ |
-| Live PostHog / Looker dashboard | ⚠️ kód hotový, ops setup manuálny |
-| Verejná produkčná beta URL | ⚠️ podľa `docs/DEPLOY.md` + secrets |
+| CI (`npm test` + lint + typecheck + build) | ✅ |
+| Vercel frontend `forenzdetectiv-web` | ✅ https://forenzdetectiv-web.vercel.app |
+| Railway API + PG + Redis | ✅ `/api/health` ok, Mistral nakonfigurovaný |
+| Canned offline spis | ❌ odstránený |
+| Live PostHog / Looker dashboard | ⚠️ kód hotový, kľúče v `.env` môžu byť prázdne |
 | Login / OAuth UI | ❌ zámerne mimo scope |
 | Monetizácia / Stripe | ❌ P2 backlog |
 | RAG nad spisom | ❌ P3 |
