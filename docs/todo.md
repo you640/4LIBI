@@ -7,29 +7,23 @@ Každý prompt skopíruj do nového Agent chatu samostatne.
 
 ## Prompt 1 — „Prvý dojem za 8 sekúnd“
 
-**Backlog:** EPIC 2 — `S2.1`, `S2.2`, `S2.3` (časť), EPIC 13 (30 dní: „Fix demo flow“)
+**Backlog:** EPIC 2 — `S2.1`, `S2.3` (časť)
 
 ```
 Si senior product engineer na ForenzDetectiv (Vite + React + TS, router v src/App.tsx).
 
-MISIA: Používateľ, ktorý otvorí appku prvýkrát, musí do 8 sekúnd buď nahrať dokument, alebo vidieť demo rozpor BA-KE — bez loginu a bez paywallu.
+MISIA: Používateľ, ktorý otvorí appku prvýkrát, musí do 8 sekúnd nahrať dokument — bez loginu a bez paywallu.
 
 KONTEXT:
 - `/` dnes redirectuje na `/spisy` — to zruš alebo nahraď skutočnou home stránkou
-- DEMO_ANALYSIS už existuje v src/types.ts ale NIE JE napojené do UI
 - Po reálnej analýze SherlockPage už naviguje na `/spisy/:id/rozpory` — to zachovaj
 - Existujúce komponenty: AppLayout, M3NavBar, SherlockAnalyzer, RozporyTab
 - Analytics helpery v src/lib/analytics.ts (zatiaľ console.log fallback)
 
 IMPLEMENTUJ (podľa BACKLOG taskov):
 - T2.1.1 HomeHero: primary CTA „Nahrať výpoveď (foto/PDF)“ → /sherlock, full-width amber
-- T2.1.2 Secondary CTA „Vyskúšať demo spis (BA-KE alibi)“ outline
 - T2.1.3 Proof strip: „Rozpory · Alibi mapa · Citát zo zdroja“
-- T2.2.1 DemoCaseRunner: ~1.5s loading „Analyzujem spis…“
-- T2.2.2 Po demo → rovno `/spisy/demo/rozpory` (alebo ekvivalent) s DEMO_ANALYSIS v case contexte — aha moment = rozpor, nie mapa
-- T2.2.4 Nový komponent DemoCaseRunner.tsx (alebo .tsx v pages/)
 - T2.3.2 Jeden QuickTip pri first visit (localStorage), žiadny blokujúci 3-slide modal
-- trackDemoLaunched() + trackContradictionViewed() pri otvorení demo rozporu
 
 ZÁKAZY:
 - Žiadny login/register/OAuth UI
@@ -38,10 +32,7 @@ ZÁKAZY:
 - Minimálny diff — žiadny redesign celého design systému
 
 DEFINITION OF DONE:
-- [x] Nová route `/` (alebo `/domov`) s hero + 2 CTA
-- [x] Demo flow funguje offline (bez API) s DEMO_ANALYSIS
-- [x] E2E test: home → demo → viditeľný rozpor na RozporyTab
-- [x] Vitest aspoň 1 test pre DemoCaseRunner / loadDemoCase logiku
+- [x] Nová route `/` s hero + CTA na Sherlock
 - [x] npm test + npm run test:e2e prejdú
 ```
 
@@ -62,7 +53,7 @@ KONTEXT:
 - src/lib/analytics.ts má 8 event helperov ale PostHog bol odstránený (len console.log)
 - src/lib/analytics.ts.backup môže obsahovať starú PostHog integráciu — použi ako referenciu, nie slepo kopíruj
 - initUtmTracking() už beží v App.tsx cez src/lib/utmTracker.ts
-- Wire body: SherlockPage (analysis_started, case_created, contradiction_detected), RozporyTab (contradiction_viewed), demo flow z Prompt 1
+- Wire body: SherlockPage (analysis_started, case_created, contradiction_detected), RozporyTab (contradiction_viewed)
 
 IMPLEMENTUJ:
 - T3.1.1–T3.1.5: posthog-js (EU host), init v main.tsx alebo App.tsx, PII sanitizácia (email, IP, name → [REDACTED])
@@ -82,7 +73,7 @@ ZÁKAZY:
 DEFINITION OF DONE:
 - [x] S VITE_POSTHOG_KEY eventy idú do PostHog EU
 - [x] Bez kľúča: tichý fallback na console.log (existujúce testy v tests/unit/analytics.test.ts prejdú)
-- [x] contradiction_viewed sa fire-uje pri reálnom UX (nie len v demo load)
+- [x] contradiction_viewed sa fire-uje pri reálnom UX
 - [x] docs/LOOKER_POSTHOG.md existuje
 - [x] npm test prejde
 ```
@@ -110,7 +101,7 @@ IMPLEMENTUJ:
 - T4.6.1–T4.6.4: PATCH alebo PUT /api/analyses/:id pre rename (name field) + frontend renameAnalysis() + inline edit v FilesPage
 - T4.6.5: Sekcia „Nedávne analýzy“ na SherlockPage (posledných 5) s linkom na /spisy/:id/rozpory
 - T4.1.5: Tlačidlo „Spustiť Sherlock analýzu“ — jasné stavy idle / uploading / queued / error (progress z /api/analyses/:id/progress ak existuje)
-- Vylepši FilesPage empty state: CTA na /sherlock a na demo (ak existuje z Prompt 1)
+- Vylepši FilesPage empty state: CTA na /sherlock
 - Pridaj API + component testy pre rename flow
 
 ZÁKAZY:
@@ -247,8 +238,8 @@ DEFINITION OF DONE:
 
 | Týždeň | Prompt                   | Prečo                              |
 | ------ | ------------------------ | ---------------------------------- |
-| 1      | **#1** Home + Demo       | Konverzia bez infra                |
-| 1–2    | **#2** Analytics         | Meranie North Star hneď po demo    |
+| 1      | **#1** Home              | Konverzia bez infra                |
+| 1–2    | **#2** Analytics         | Meranie North Star                 |
 | 2      | **#3** Sherlock história | Denné používanie                   |
 | 3      | **#5** Deploy + docs     | Beta pre testerov                  |
 | 4      | **#4** LEA trust         | Diferenciácia pred širším launchom |
@@ -277,4 +268,4 @@ DEFINITION OF DONE:
 
 ---
 
-Ak chceš, v **Agent mode** môžem začať **Promptom #1** (Home + Demo BA-KE) — je najrýchlejší win bez závislosti na deployi.
+Ak chceš, v **Agent mode** môžem začať **Promptom #1** (Home) — je najrýchlejší win bez závislosti na deployi.
