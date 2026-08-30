@@ -31,7 +31,7 @@ export function CaseLayout() {
     return <LoadedCase analysisId={DEMO_CASE_ID} analysis={getDemoAnalysis()} />;
   }
 
-  return <RemoteCase id={id} />;
+  return <RemoteCase key={id} id={id} />;
 }
 
 function RemoteCase({ id }: { id: string }) {
@@ -44,9 +44,6 @@ function RemoteCase({ id }: { id: string }) {
 
     rememberLastCaseId(id);
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-
     getAnalysis(id)
       .then((record) => {
         if (cancelled) return;
