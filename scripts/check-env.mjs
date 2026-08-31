@@ -102,6 +102,7 @@ optional("VITE_SENTRY_DSN",       "Sentry DSN pre error monitoring");
 optional("VITE_STRIPE_PUBLIC_KEY","Stripe public key pre platby");
 
 console.log(`\n${B}[ VOLITEĽNÉ — INTEGRÁCIE ]${X}`);
+optional("LINEAR_API_KEY",        "Linear API — bez kľúča sa forenzné 3 otázky zastavia (fail-closed)");
 optional("GOOGLE_CLIENT_ID",      "Google OAuth Client ID");
 optional("GOOGLE_CLIENT_SECRET",  "Google OAuth Client Secret");
 optional("MISTRAL_BACKUP_API_KEY","Záložný Mistral kľúč");
