@@ -7,6 +7,9 @@ test.describe("core flows", () => {
     await expect(page.getByTestId("home-cta-upload")).toBeVisible();
     await expect(page.getByTestId("home-cta-demo")).toHaveCount(0);
     await expect(page.getByTestId("home-proof-strip")).toContainText("Rozpory");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      "Devätnásť minút"
+    );
   });
 
   test("home CTA opens Sherlock", async ({ page }) => {

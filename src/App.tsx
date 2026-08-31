@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { HomePage } from "./pages/HomePage";
 import { SherlockPage } from "./pages/SherlockPage";
@@ -24,10 +24,10 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="app-shell">
-        <Routes>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route element={<PhoneShell />}>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<HomePage />} />
             <Route path="/sherlock" element={<SherlockPage />} />
             <Route path="/lokalna-analyza" element={<LocalAnalysisPage />} />
             <Route path="/spisy" element={<FilesPage />} />
@@ -43,8 +43,16 @@ export default function App() {
             <Route path="/profil" element={<ProfilePage />} />
             <Route path="*" element={<Navigate to="/spisy" replace />} />
           </Route>
-        </Routes>
-      </div>
+        </Route>
+      </Routes>
     </BrowserRouter>
+  );
+}
+
+function PhoneShell() {
+  return (
+    <div className="app-shell">
+      <Outlet />
+    </div>
   );
 }
