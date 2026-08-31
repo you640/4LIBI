@@ -1,6 +1,5 @@
 import type { Context } from "hono";
 import crypto from "node:crypto";
-import { ensureUser } from "./prisma";
 
 export type AuthVariables = {
   ownerId: string;
@@ -41,8 +40,8 @@ export function rateLimitMiddleware(limit: number = 30, windowMs: number = 60 * 
 }
 
 export function isAuthBypass(): boolean {
-  // Fail-closed: auth is required unless ENABLE_AUTH is explicitly "false".
-  return process.env.ENABLE_AUTH === "false";
+  // Fail-closed: auth is required unless ENABLE_AUTH is explicitly "false" AND we are NOT in production.
+  return process.env.ENABLE_AUTH === "false" && process.env.NODE_ENV !== "production";
 }
 
 /** Timing-safe API key comparison. */
@@ -68,11 +67,6 @@ export async function authMiddleware(
     const devIdentity = crypto.createHash("sha256").update(devOwnerId).digest("hex").slice(0, 16);
     const email = `dev-${devIdentity}@forenzdetectiv.local`;
     c.set("userEmail", email);
-    try {
-      await ensureUser(devOwnerId, email);
-    } catch {
-      /* ignore */
-    }
     return await next();
   }
 
@@ -93,11 +87,6 @@ export async function authMiddleware(
       }
       c.set("ownerId", decoded.userId);
       c.set("userEmail", decoded.email);
-      try {
-        await ensureUser(decoded.userId, decoded.email);
-      } catch {
-        /* ignore */
-      }
       return await next();
     } catch {
       return c.json({ error: "Neplatný autentifikačný token" }, 401);
@@ -107,11 +96,6 @@ export async function authMiddleware(
   if (apiKey && process.env.API_KEY && apiKeysMatch(apiKey, process.env.API_KEY)) {
     c.set("ownerId", "api_user");
     c.set("userEmail", "api@forenzdetectiv.local");
-    try {
-      await ensureUser("api_user", "api@forenzdetectiv.local");
-    } catch {
-      /* ignore */
-    }
     return await next();
   }
 

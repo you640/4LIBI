@@ -61,48 +61,20 @@ export async function createUser(email: string, passwordHash?: string) {
   );
 }
 
-export async function ensureUser(id: string, email?: string) {
-  return withDbRetry(async () => {
-    return prisma.user.upsert({
-      where: { id },
-      create: {
-        id,
-        email: email || `${id}@forenzdetectiv.local`,
-      },
-      update: {},
-    });
-  });
-}
-
 // ============================================
 // AUDIT LOG FUNCTIONS (Server-side, not localStorage)
 // ============================================
 
 export async function logAuditAction(
-  ownerId: string | undefined,
+  ownerId: string,
   action: string,
   details?: Record<string, unknown>
 ) {
-  let resolvedUserId: string | null = null;
-  if (ownerId) {
-    try {
-      const user = await prisma.user.findUnique({ where: { id: ownerId } });
-      if (user) {
-        resolvedUserId = user.id;
-      } else {
-        const created = await ensureUser(ownerId);
-        resolvedUserId = created.id;
-      }
-    } catch {
-      resolvedUserId = null;
-    }
-  }
-
   return withDbRetry(() =>
     prisma.auditLog.create({
       data: {
         action,
-        userId: resolvedUserId,
+        userId: ownerId,
         details: sanitizeAuditDetails(details) as unknown as import("../generated/client").Prisma.InputJsonValue,
       },
     })

@@ -202,7 +202,7 @@ export function FilesPage() {
             className="m3-btn-filled flex items-center justify-center gap-2 py-2.5"
           >
             <UploadIcon className="w-5 h-5" />
-            Nahrať PDF
+            Analyzovať Linear dôkazy
           </button>
 
           {items.length > 0 && (
@@ -256,17 +256,8 @@ export function FilesPage() {
             <FilesIcon className="w-8 h-8 text-outline mx-auto mb-3" />
             <p className="text-sm font-medium text-surface-on mb-1">Zatiaľ prázdne</p>
             <p className="text-xs text-outline leading-relaxed mb-4">
-              Nahrajte spis v Sherlock a rozpory uvidíte v tomto zozname.
+              Spustite forenznú analýzu z Linearu a rozpory uvidíte v tomto zozname.
             </p>
-            <div className="flex flex-col gap-2 items-center">
-              <button
-                type="button"
-                onClick={() => navigate("/sherlock")}
-                className="m3-btn-filled !w-auto px-6"
-              >
-                Nahrať výpoveď (Sherlock)
-              </button>
-            </div>
           </div>
         )}
 

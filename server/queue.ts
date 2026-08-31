@@ -3,11 +3,17 @@ import { Queue, Worker, Job } from "bullmq";
 import IORedis from "ioredis";
 import { readFile } from "node:fs/promises";
 import { prisma, logAuditAction } from "./prisma";
-import { analyzeFilesFromBytes } from "../src/lib/analyzeCore";
+import {
+  analyzeFilesFromBytes,
+  analyzeForensicLinearFromBytes,
+  omitForensic,
+} from "../src/lib/analyzeCore";
+import { resolveAnalysisQueueName } from "./queueName";
 
 let redisConnection: IORedis | null = null;
 let analysisQueue: Queue<AnalysisJobData> | null = null;
 let worker: Worker<AnalysisJobData> | null = null;
+const ANALYSIS_QUEUE_NAME = resolveAnalysisQueueName();
 
 function getRedisConnection(): IORedis {
   if (!redisConnection) {
@@ -32,8 +38,20 @@ function getRedisConnection(): IORedis {
 export interface AnalysisJobData {
   analysisId: string;
   ownerId: string;
-  filePaths: { name: string; path: string; mime: string; size: number }[];
+  filePaths: {
+    name: string;
+    path: string;
+    mime: string;
+    size: number;
+    linearMeta?: {
+      linear_project_id: string;
+      linear_issue_id?: string;
+      linear_document_id?: string;
+      attachment_id?: string;
+    };
+  }[];
   apiKey: string;
+  mode?: "sherlock" | "forensic";
 }
 
 export interface JobProgress {
@@ -55,7 +73,7 @@ const DEFAULT_JOB_OPTIONS = {
 
 function getAnalysisQueue(): Queue<AnalysisJobData> {
   if (!analysisQueue) {
-    analysisQueue = new Queue<AnalysisJobData>("analysis", {
+    analysisQueue = new Queue<AnalysisJobData>(ANALYSIS_QUEUE_NAME, {
       connection: getRedisConnection(),
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
@@ -64,7 +82,7 @@ function getAnalysisQueue(): Queue<AnalysisJobData> {
 }
 
 async function processAnalysisJob(job: Job<AnalysisJobData>) {
-  const { analysisId, ownerId, filePaths, apiKey } = job.data;
+  const { analysisId, ownerId, filePaths, apiKey, mode = "sherlock" } = job.data;
 
   try {
     await prisma.analysis.update({
@@ -80,7 +98,7 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
       processedFiles: 0,
     });
 
-    const docs: { name: string; mime: string; bytes: ArrayBuffer }[] = [];
+    const docs: { name: string; mime: string; bytes: ArrayBuffer; linearMeta?: unknown }[] = [];
 
     for (let i = 0; i < filePaths.length; i++) {
       const filePath = filePaths[i];
@@ -102,6 +120,7 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
           fileBuffer.byteOffset,
           fileBuffer.byteOffset + fileBuffer.byteLength
         ) as ArrayBuffer,
+        linearMeta: filePath.linearMeta,
       });
     }
 
@@ -116,10 +135,16 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
     await updateJobProgress(job, {
       step: "analyzing",
       progress: 40,
-      message: "Spúštam forenznú analýzu...",
+      message:
+        mode === "forensic"
+          ? "Spúšťam forenznú analýzu troch otázok..."
+          : "Spúšťam lokálnu Sherlock analýzu...",
     });
 
-    const data = await analyzeFilesFromBytes(docs, apiKey);
+    const data =
+      mode === "forensic"
+        ? await analyzeForensicLinearFromBytes(docs, apiKey)
+        : omitForensic(await analyzeFilesFromBytes(docs, apiKey));
 
     await updateJobProgress(job, {
       step: "analyzing",
@@ -186,7 +211,7 @@ async function updateJobProgress(job: Job, progress: JobProgress) {
 
 function getWorker(): Worker<AnalysisJobData> {
   if (!worker) {
-    worker = new Worker<AnalysisJobData>("analysis", processAnalysisJob, {
+    worker = new Worker<AnalysisJobData>(ANALYSIS_QUEUE_NAME, processAnalysisJob, {
       connection: getRedisConnection(),
       concurrency: 2,
       limiter: { max: 5, duration: 1000 },
@@ -284,5 +309,5 @@ export async function shutdownQueue() {
 
 export function startQueueProcessing() {
   getWorker();
-  console.log("[Queue] Worker started, waiting for jobs...");
+  console.log(`[Queue] Worker started on ${ANALYSIS_QUEUE_NAME}, waiting for jobs...`);
 }

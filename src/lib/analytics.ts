@@ -93,7 +93,7 @@ export function identifyUser(userId: string, properties?: Record<string, unknown
 
 export function trackCaseCreated(properties: {
   fileCount: number;
-  source: "sandbox" | "upload";
+  source: "sandbox" | "upload" | "linear";
 }) {
   trackEvent(ANALYTICS_EVENTS.CASE_CREATED, properties);
 }
@@ -147,7 +147,7 @@ export function trackErrorOccurred(properties: {
 
 export function trackAnalysisStarted(properties: {
   fileCount: number;
-  source: "sandbox" | "upload";
+  source: "sandbox" | "upload" | "linear";
 }) {
   trackEvent(ANALYTICS_EVENTS.ANALYSIS_STARTED, properties);
 }

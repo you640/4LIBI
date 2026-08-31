@@ -212,6 +212,65 @@ export async function analyzeViaApi(
   return record;
 }
 
+
+export type LinearStatusResponse = {
+  configured: boolean;
+  reachable: boolean;
+  project_id: string;
+  project_name: string | null;
+  issue_count: number | null;
+  document_count: number | null;
+  admissible_count: number | null;
+  error: string | null;
+};
+
+export async function getLinearStatus(): Promise<LinearStatusResponse> {
+  const res = await fetch(apiPath("/api/linear/status"));
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+  return (await res.json()) as LinearStatusResponse;
+}
+
+export async function analyzeLinearViaApi(
+  options?: AnalyzeViaApiOptions
+): Promise<AnalysisRecord> {
+  options?.onProgress?.({
+    status: "uploading",
+    message: "Načítavam dôkazy z Linear projektu…",
+  });
+  let res: Response;
+  try {
+    res = await fetch(apiPath("/api/analyses/linear"), { method: "POST" });
+  } catch (err) {
+    console.warn("[analyzeLinearViaApi] Backend fetch zlyhal:", err);
+    throw new Error(
+      "Linear projekt sa nepodarilo načítať. Analýza troch vyšetrovacích otázok je zastavená."
+    );
+  }
+  if (res.status === 503) {
+    throw new Error(await readApiError(res));
+  }
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+  const initialRecord = (await res.json()) as AnalysisRecord;
+  if (isPendingStatus(initialRecord.status)) {
+    options?.onProgress?.({
+      status: initialRecord.status,
+      message: "Linear dôkazy zaradené do forenznej analýzy…",
+    });
+  }
+  const record = isPendingStatus(initialRecord.status)
+    ? await waitForAnalysis(initialRecord.id, options?.onProgress)
+    : initialRecord;
+  if (!record.data) {
+    throw new Error("Server nevrátil dáta analýzy.");
+  }
+  await saveLocalAnalysis(record);
+  return record;
+}
+
 export async function listAnalyses(): Promise<AnalysisSummary[]> {
   try {
     const res = await fetch(apiPath("/api/analyses"));

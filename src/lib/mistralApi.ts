@@ -8,12 +8,19 @@ interface MistralMessage {
   content: string;
 }
 
+export interface MistralJsonSchema {
+  name: string;
+  schema: Record<string, unknown>;
+  strict?: boolean;
+}
+
 interface MistralConfig {
   apiKey: string;
   model?: string;
   temperature?: number;
   maxTokens?: number;
   jsonObject?: boolean;
+  jsonSchema?: MistralJsonSchema;
 }
 
 /**
@@ -30,6 +37,7 @@ export async function callMistralApi(
     temperature = 0.3, // nízka kreativita = presnosť (S4.5.7)
     maxTokens = 16000,
     jsonObject = false,
+    jsonSchema,
   } = config;
 
   if (!apiKey) {
@@ -54,7 +62,7 @@ export async function callMistralApi(
           messages,
           temperature,
           max_tokens: maxTokens,
-          ...(jsonObject ? { response_format: { type: "json_object" } } : {}),
+          ...responseFormatPayload(jsonSchema, jsonObject),
         }),
       });
 
@@ -100,6 +108,28 @@ export async function callMistralApi(
   }
 
   throw lastError || new Error("Mistral API volanie zlyhalo po retry");
+}
+
+function responseFormatPayload(
+  jsonSchema: MistralJsonSchema | undefined,
+  jsonObject: boolean
+): { response_format: Record<string, unknown> } | Record<string, never> {
+  if (jsonSchema) {
+    return {
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: jsonSchema.name,
+          schema: jsonSchema.schema,
+          strict: jsonSchema.strict ?? true,
+        },
+      },
+    };
+  }
+  if (jsonObject) {
+    return { response_format: { type: "json_object" } };
+  }
+  return {};
 }
 
 function messageContentToText(content: unknown): string {

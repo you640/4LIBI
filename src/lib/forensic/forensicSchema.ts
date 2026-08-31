@@ -1,0 +1,301 @@
+/** JSON Schema pre Mistral structured output (json_schema + strict). */
+
+const EVIDENCE_TYPES = [
+  "direct_evidence",
+  "testimony",
+  "corroborated",
+  "inference",
+  "hypothesis",
+] as const;
+
+const WEAPONS_ROLES = [
+  "orderer",
+  "buyer",
+  "payer",
+  "physical_receiver",
+  "transporter",
+  "storage_holder",
+  "seller",
+  "transferor",
+  "final_holder",
+  "unknown",
+] as const;
+
+const evidenceSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["document_id", "page", "quote", "evidence_type"],
+  properties: {
+    document_id: { type: "string" },
+    page: { type: ["integer", "number", "null"] },
+    quote: { type: "string" },
+    evidence_type: { type: "string", enum: [...EVIDENCE_TYPES] },
+    linear_project_id: { type: "string" },
+    linear_issue_id: { type: ["string", "null"] },
+    linear_document_id: { type: ["string", "null"] },
+    attachment_id: { type: ["string", "null"] },
+  },
+} as const;
+
+const actorSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "name",
+    "entity",
+    "role",
+    "found_in_text",
+    "inferred",
+    "confidence",
+    "evidence",
+    "contradicting_evidence",
+  ],
+  properties: {
+    name: { type: "string" },
+    entity: { type: ["string", "null"] },
+    role: { type: "string", enum: [...WEAPONS_ROLES] },
+    found_in_text: { type: "boolean" },
+    inferred: { type: "boolean" },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    evidence: { type: "array", items: evidenceSchema },
+    contradicting_evidence: { type: "array", items: evidenceSchema },
+  },
+} as const;
+
+const planCandidateSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "name",
+    "entity",
+    "role",
+    "found_in_text",
+    "inferred",
+    "confidence",
+    "evidence",
+    "contradicting_evidence",
+  ],
+  properties: {
+    name: { type: "string" },
+    entity: { type: ["string", "null"] },
+    role: {
+      type: "string",
+      enum: ["designer", "director", "coordinator", "unknown"],
+    },
+    found_in_text: { type: "boolean" },
+    inferred: { type: "boolean" },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    evidence: { type: "array", items: evidenceSchema },
+    contradicting_evidence: { type: "array", items: evidenceSchema },
+  },
+} as const;
+
+const payerSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "name",
+    "entity",
+    "role",
+    "found_in_text",
+    "inferred",
+    "confidence",
+    "evidence",
+  ],
+  properties: {
+    name: { type: "string" },
+    entity: { type: ["string", "null"] },
+    role: {
+      type: "string",
+      enum: ["invoice_payer", "funding_source", "unknown"],
+    },
+    found_in_text: { type: "boolean" },
+    inferred: { type: "boolean" },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    evidence: { type: "array", items: evidenceSchema },
+  },
+} as const;
+
+const fundingSourceSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "name",
+    "entity",
+    "origin",
+    "distinct_from_invoice_payer",
+    "confidence",
+    "evidence",
+  ],
+  properties: {
+    name: { type: "string" },
+    entity: { type: ["string", "null"] },
+    origin: { type: ["string", "null"] },
+    distinct_from_invoice_payer: { type: "boolean" },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    evidence: { type: "array", items: evidenceSchema },
+  },
+} as const;
+
+export const FORENSIC_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "document_id",
+    "document_hash",
+    "language",
+    "questions",
+    "entities",
+    "transactions",
+    "contradictions",
+    "warnings",
+  ],
+  properties: {
+    document_id: { type: "string" },
+    document_hash: { type: ["string", "null"] },
+    language: { type: "string", enum: ["sk", "cs", "en", "other"] },
+    missing_evidence: { type: "array", items: { type: "string" } },
+    contradicting_evidence: { type: "array", items: evidenceSchema },
+    questions: {
+      type: "object",
+      additionalProperties: false,
+      required: ["weapons_flow", "plan_author", "financing"],
+      properties: {
+        weapons_flow: {
+          type: "object",
+          additionalProperties: false,
+          required: ["answer", "actors", "missing_evidence"],
+          properties: {
+            answer: { type: ["string", "null"] },
+            status: { type: "string", enum: ["sufficient", "insufficient_evidence"] },
+            actors: { type: "array", items: actorSchema },
+            missing_evidence: { type: "array", items: { type: "string" } },
+          },
+        },
+        plan_author: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "answer",
+            "candidates",
+            "confidence",
+            "evidence",
+            "alternative_explanations",
+            "missing_evidence",
+          ],
+          properties: {
+            answer: { type: ["string", "null"] },
+            status: { type: "string", enum: ["sufficient", "insufficient_evidence"] },
+            candidates: { type: "array", items: planCandidateSchema },
+            confidence: { type: "number", minimum: 0, maximum: 1 },
+            evidence: { type: "array", items: evidenceSchema },
+            alternative_explanations: {
+              type: "array",
+              items: { type: "string" },
+            },
+            missing_evidence: { type: "array", items: { type: "string" } },
+          },
+        },
+        financing: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "answer",
+            "payers",
+            "funding_sources",
+            "confidence",
+            "evidence",
+            "missing_evidence",
+          ],
+          properties: {
+            answer: { type: ["string", "null"] },
+            status: { type: "string", enum: ["sufficient", "insufficient_evidence"] },
+            payers: { type: "array", items: payerSchema },
+            funding_sources: { type: "array", items: fundingSourceSchema },
+            confidence: { type: "number", minimum: 0, maximum: 1 },
+            evidence: { type: "array", items: evidenceSchema },
+            missing_evidence: { type: "array", items: { type: "string" } },
+          },
+        },
+      },
+    },
+    entities: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "type", "identifiers", "aliases"],
+        properties: {
+          name: { type: "string" },
+          type: { type: "string", enum: ["person", "company", "other"] },
+          identifiers: { type: "array", items: { type: "string" } },
+          aliases: { type: "array", items: { type: "string" } },
+        },
+      },
+    },
+    transactions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "date",
+          "amount",
+          "currency",
+          "invoice_number",
+          "license_number",
+          "serial_number",
+          "payer",
+          "payee",
+          "purpose",
+          "evidence",
+        ],
+        properties: {
+          date: { type: ["string", "null"] },
+          amount: { type: ["string", "null"] },
+          currency: { type: ["string", "null"] },
+          invoice_number: { type: ["string", "null"] },
+          license_number: { type: ["string", "null"] },
+          serial_number: { type: ["string", "null"] },
+          payer: { type: ["string", "null"] },
+          payee: { type: ["string", "null"] },
+          purpose: { type: ["string", "null"] },
+          evidence: { type: "array", items: evidenceSchema },
+        },
+      },
+    },
+    contradictions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "field",
+          "value_a",
+          "value_b",
+          "source_a",
+          "source_b",
+          "description",
+        ],
+        properties: {
+          field: { type: "string" },
+          value_a: { type: "string" },
+          value_b: { type: "string" },
+          source_a: { type: "string" },
+          source_b: { type: "string" },
+          description: { type: "string" },
+        },
+      },
+    },
+    warnings: { type: "array", items: { type: "string" } },
+  },
+};
+
+export const FORENSIC_RESPONSE_FORMAT = {
+  type: "json_schema" as const,
+  json_schema: {
+    name: "forensic_analysis",
+    schema: FORENSIC_JSON_SCHEMA,
+    strict: true,
+  },
+};

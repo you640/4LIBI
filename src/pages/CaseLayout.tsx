@@ -13,6 +13,7 @@ import {
 import { getAllHitlForAnalysis } from "../lib/hitlStorage";
 
 const TITLES: Record<string, string> = {
+  otazky: "Tri otázky",
   rozpory: "Rozpory",
   timeline: "Časová os",
   graf: "Graf",
@@ -108,7 +109,9 @@ function LoadedCase({
   }, [analysisId]);
 
   const pathTab = location.pathname.split("/").pop() || "rozpory";
-  const tabKey = ["rozpory", "timeline", "graf", "osoby", "audit"].includes(pathTab)
+  const tabKey = ["otazky", "rozpory", "timeline", "graf", "osoby", "audit"].includes(
+    pathTab
+  )
     ? pathTab
     : "rozpory";
 

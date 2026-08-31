@@ -1,13 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SherlockAnalyzer } from "../components/sherlock/SherlockAnalyzer";
-import { RecentAnalyses } from "../components/sherlock/RecentAnalyses";
+import { LocalSherlockAnalyzer } from "../components/sherlock/LocalSherlockAnalyzer";
 import { AppBar } from "../components/m3/AppBar";
-import {
-  analyzeLinearViaApi,
-  getLinearStatus,
-  type AnalysisProgressUpdate,
-} from "../lib/api";
+import { analyzeViaApi, type AnalysisProgressUpdate } from "../lib/api";
 import { rememberLastCaseId } from "../lib/caseUtils";
 import {
   trackCaseCreated,
@@ -33,70 +28,33 @@ function phaseFromProgress(update: AnalysisProgressUpdate): AnalyzePhase {
 
 function phaseLabel(phase: AnalyzePhase, message: string): string {
   if (message.trim()) return message;
-  if (phase === "uploading") return "Načítavam dôkazy z Linearu…";
+  if (phase === "uploading") return "Nahrávam dokumenty…";
   if (phase === "queued") return "Analýza vo fronte…";
-  if (phase === "processing") return "Analyzujem Linear dôkazy…";
-  return "Pripravujem forenznú analýzu…";
+  if (phase === "processing") return "Lokálna OCR analýza…";
+  return "Čítam dokument…";
 }
 
-export function SherlockPage() {
+export function LocalAnalysisPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<AnalyzePhase>("idle");
   const [progressMessage, setProgressMessage] = useState("");
   const [progressPct, setProgressPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [linearReady, setLinearReady] = useState(false);
-  const [linearMessage, setLinearMessage] = useState<string | null>(
-    "Overujem prístup k Linear projektu…"
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    getLinearStatus()
-      .then((status) => {
-        if (cancelled) return;
-        setLinearReady(status.configured && status.reachable);
-        if (!status.configured) {
-          setLinearMessage(
-            "Chýba LINEAR_API_KEY. Analýza troch otázok z Linearu je zastavená."
-          );
-        } else if (!status.reachable) {
-          setLinearMessage(
-            status.error ||
-              "Linear projekt sa nepodarilo načítať. Analýza troch otázok z Linearu je zastavená."
-          );
-        } else {
-          setLinearMessage(
-            `${status.project_name || "UBOK"} · ${status.admissible_count ?? 0} prípustných dôkazov`
-          );
-        }
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setLinearReady(false);
-        setLinearMessage(
-          err instanceof Error
-            ? err.message
-            : "Linear projekt sa nepodarilo načítať."
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const isAnalyzing = phase !== "idle" && phase !== "error";
 
-  const handleAnalyzeLinear = async () => {
+  const handleAnalyze = async (files: File[]) => {
     setPhase("uploading");
-    setProgressMessage("Načítavam dôkazy z Linear projektu…");
+    setProgressMessage("Nahrávam dokumenty…");
     setProgressPct(null);
     setError(null);
-    trackAnalysisStarted({ fileCount: 0, source: "linear" });
-    trackCaseCreated({ fileCount: 0, source: "linear" });
-    auditCaseCreate({ fileCount: 0, source: "linear" });
+
+    trackAnalysisStarted({ fileCount: files.length, source: "upload" });
+    trackCaseCreated({ fileCount: files.length, source: "upload" });
+    auditCaseCreate({ fileCount: files.length, source: "upload" });
+
     try {
-      const result = await analyzeLinearViaApi({
+      const result = await analyzeViaApi(files, {
         onProgress: (update) => {
           setPhase(phaseFromProgress(update));
           setProgressMessage(update.message);
@@ -105,38 +63,40 @@ export function SherlockPage() {
           );
         },
       });
+
       if (!result.data) {
         throw new Error("Server nevrátil dáta analýzy.");
       }
+
       rememberLastCaseId(result.id);
-      navigate(`/spisy/${result.id}/otazky`, { replace: true });
+      navigate(`/spisy/${result.id}/rozpory`, { replace: true });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Neznáma chyba pri Linear analýze";
+        err instanceof Error ? err.message : "Neznáma chyba pri lokálnej analýze";
       setError(message);
       setPhase("error");
       trackErrorOccurred({
         errorType: "analysis_failed",
         errorMessage: message,
-        context: "linear_analyze_api",
+        context: "local_ocr_analyze_api",
       });
     }
   };
 
   return (
     <div className="flex-col min-h-0 flex-1 flex">
-      <AppBar title="Sherlock" />
+      <AppBar title="Lokálna OCR analýza" />
       <div className="app-content px-4 pt-2">
         <p className="text-sm text-outline mb-4">
           {isAnalyzing
             ? phaseLabel(phase, progressMessage)
-            : "Forenzný režim troch otázok — iba Linear UBOK"}
+            : "Pomocný OCR režim — nie je dôkazný zdroj troch otázok"}
         </p>
 
         {isAnalyzing && (
           <div
             className="flex flex-col items-center justify-center py-16"
-            data-testid="sherlock-analyzing"
+            data-testid="local-analyzing"
           >
             <div className="w-10 h-10 border-2 border-outline-variant border-t-primary rounded-full animate-spin mb-4" />
             <p className="text-sm text-surface-on">
@@ -149,15 +109,7 @@ export function SherlockPage() {
         )}
 
         {!isAnalyzing && (
-          <>
-            <SherlockAnalyzer
-              onAnalyzeLinear={handleAnalyzeLinear}
-              linearReady={linearReady}
-              linearMessage={linearMessage}
-              error={error}
-            />
-            <RecentAnalyses />
-          </>
+          <LocalSherlockAnalyzer onAnalyze={handleAnalyze} error={error} />
         )}
       </div>
     </div>

@@ -182,4 +182,5 @@ export interface Analysis {
   claims?: ForensicClaim[];
   contradictions?: Contradiction[];
   red_flags?: string[];
+  forensic?: import("./lib/forensic/types").ForensicCaseResult;
 }

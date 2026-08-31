@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { prisma, logAuditAction, ensureUser } from "./prisma";
+import { prisma, logAuditAction } from "./prisma";
 import { ensureUserIdentity } from "./identity";
 import type { Prisma } from "../generated/client";
 import { createOCRService } from "./ocrService";
@@ -14,6 +14,7 @@ import { evaluateTravelFeasibility } from "./geospatialEngine";
 import { generateCrossExamWithMistral } from "../src/lib/crossExamination";
 import type { Contradiction } from "../src/types";
 import { queueAnalysisJob, getJobProgress, removeAnalysisJob, type AnalysisJobData, startQueueProcessing } from "./queue";
+import { isAllowedLinearProjectId } from "../src/lib/forensic/sourceOfTruth";
 import { bodyLimit } from "hono/body-limit";
 import {
   type AuthVariables,
@@ -27,7 +28,7 @@ import {
 const PORT = Number(process.env.PORT ?? 5176);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const MAX_FILES = 20;
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FILE_BYTES = 200 * 1024 * 1024;
 const UPLOAD_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../uploads"
@@ -63,13 +64,13 @@ app.use(
   })
 );
 
-// Body size limit for file uploads (600MB = 20 files * 25MB + buffer)
+// Body size limit for file uploads (4500MB = 20 files * 200MB + buffer)
 app.use(
   "/api/*",
   bodyLimit({
-    maxSize: 600 * 1024 * 1024,
+    maxSize: 4500 * 1024 * 1024,
     onError: (c) => {
-      return c.json({ error: "Veľkosť požiadavky presiahla povolený limit (max 600 MB)." }, 413);
+      return c.json({ error: "Veľkosť požiadavky presiahla povolený limit (max 4.5 GB)." }, 413);
     },
   })
 );
@@ -80,6 +81,7 @@ app.get("/api/health", (c) => {
     timestamp: new Date().toISOString(),
     version: "0.2.0-beta",
     mistralConfigured: Boolean(process.env.MISTRAL_API_KEY),
+    linearConfigured: Boolean(process.env.LINEAR_API_KEY || process.env.LINEAR_API_TOKEN),
   });
 });
 
@@ -132,14 +134,6 @@ app.post("/api/analyze", async (c) => {
   const fallbackName =
     entries.length === 1 ? entries[0].name : `${entries.length} dokumentov`;
 
-  if (ownerId) {
-    try {
-      await ensureUser(ownerId, userEmail);
-    } catch (err) {
-      console.warn("[/api/analyze] ensureUser warning:", err);
-    }
-  }
-
   // Log audit action
   await logAuditAction(ownerId, "analysis_start", {
     fileCount: entries.length,
@@ -168,7 +162,7 @@ app.post("/api/analyze", async (c) => {
 
     for (const [index, file] of entries.entries()) {
       if (file.size > MAX_FILE_BYTES) {
-        throw new Error(`Súbor ${file.name} je príliš veľký (max 25 MB).`);
+        throw new Error(`Súbor ${file.name} je príliš veľký (max 200 MB).`);
       }
 
       const bytes = await file.arrayBuffer();
@@ -212,6 +206,7 @@ app.post("/api/analyze", async (c) => {
       ownerId,
       filePaths,
       apiKey,
+      mode: "sherlock",
     });
 
     await prisma.analysis.update({
@@ -240,6 +235,201 @@ app.post("/api/analyze", async (c) => {
       data: { status: "error", errorMessage: message },
     });
     return c.json({ error: message, id: analysis.id }, 500);
+  }
+});
+
+app.get("/api/linear/status", async (c) => {
+  const { getLinearStatus, resolveLinearApiKey } = await import(
+    "../src/lib/forensic/linearClient.js"
+  );
+  const status = await getLinearStatus({ apiKey: resolveLinearApiKey() });
+  return c.json(status);
+});
+
+// 1.5 Linear Evidence Sync — server-side keys only; fail-closed if Linear is unreachable.
+app.post("/api/analyses/linear", async (c) => {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "Chýba MISTRAL_API_KEY na serveri." }, 500);
+  }
+
+  const { resolveLinearApiKey } = await import("../src/lib/forensic/linearClient.js");
+  const linearApiKey = resolveLinearApiKey();
+  if (!linearApiKey) {
+    return c.json(
+      {
+        error:
+          "Linear projekt sa nepodarilo načítať. Analýza troch vyšetrovacích otázok je zastavená.",
+        status: "linear_unavailable",
+      },
+      503
+    );
+  }
+
+  const ownerId = c.get("ownerId");
+  const userEmail = c.get("userEmail");
+
+  try {
+    const { fetchLinearEvidence } = await import("../src/lib/linearClient.js");
+    const linearDocs = await fetchLinearEvidence(linearApiKey);
+
+    if (linearDocs.length === 0) {
+      const { linearUnavailableForensicResult } = await import(
+        "../src/lib/forensic/types.js"
+      );
+      const forensic = {
+        ...linearUnavailableForensicResult(
+          "Linear projekt neobsahuje prípustné dôkazy s povinnými metadátami (názov, osoba/subjekt, typ, dátum, úplnosť, prepis alebo príloha)."
+        ),
+        status: "ready" as const,
+      };
+      const analysis = await prisma.analysis.create({
+        data: {
+          ownerId,
+          name: "Linear UBOK — nedostatočné dôkazy",
+          status: "ready",
+          metadata: { email: userEmail, fileCount: 0, source: "linear" },
+          data: {
+            metadata: {
+              document_name: "Linear UBOK",
+              language: "sk",
+              page_count: 0,
+              upload_date: new Date().toISOString(),
+            },
+            persons: [],
+            evidence: [],
+            relationships: [],
+            timeline: [],
+            forensic,
+          },
+        },
+      });
+      return c.json({
+        id: analysis.id,
+        name: analysis.name,
+        status: "ready",
+        createdAt: analysis.createdAt,
+        message: "Linear je dostupný, ale žiadny dôkaz nespĺňa podmienky zaradenia.",
+      });
+    }
+
+    const fallbackName = `Linear Sync: ${linearDocs.length} dokumentov`;
+
+    await logAuditAction(ownerId, "linear_sync_start", {
+      fileCount: linearDocs.length,
+      totalSize: linearDocs.reduce((sum, f) => sum + f.bytes.byteLength, 0),
+    });
+
+    const analysis = await prisma.analysis.create({
+      data: {
+        ownerId,
+        name: fallbackName,
+        status: "queued",
+        metadata: {
+          email: userEmail,
+          fileCount: linearDocs.length,
+          source: "linear"
+        }
+      },
+    });
+
+    const analysisDir = path.join(UPLOAD_DIR, analysis.id);
+    await mkdir(analysisDir, { recursive: true });
+
+    const filePaths: AnalysisJobData["filePaths"] = [];
+
+    for (let i = 0; i < linearDocs.length; i++) {
+      const doc = linearDocs[i];
+      const storedName = `${i + 1}-${sanitizeName(doc.name)}.txt`;
+      const storagePath = path.join(analysisDir, storedName);
+
+      await writeFile(storagePath, Buffer.from(doc.bytes));
+
+      await prisma.file.create({
+        data: {
+          ownerId,
+          name: doc.name,
+          storagePath,
+          contentType: "text/plain",
+          size: doc.bytes.byteLength,
+          analyses: { connect: { id: analysis.id } },
+        },
+      });
+
+      filePaths.push({
+        name: doc.name,
+        path: storagePath,
+        mime: "text/plain",
+        size: doc.bytes.byteLength,
+        linearMeta: doc.linearMeta,
+      });
+    }
+
+    const allowedPaths = filePaths.filter((p) =>
+      isAllowedLinearProjectId(p.linearMeta?.linear_project_id)
+    );
+    if (allowedPaths.length === 0) {
+      await prisma.analysis.update({
+        where: { id: analysis.id },
+        data: {
+          status: "error",
+          errorMessage:
+            "Chýba validné Linear metadata alebo povolený project ID. Analýza troch vyšetrovacích otázok je zastavená.",
+        },
+      });
+      return c.json(
+        {
+          error:
+            "Chýba validné Linear metadata alebo povolený project ID. Analýza troch vyšetrovacích otázok je zastavená.",
+          status: "linear_unavailable",
+        },
+        503
+      );
+    }
+
+    await queueAnalysisJob({
+      analysisId: analysis.id,
+      ownerId,
+      filePaths: allowedPaths,
+      apiKey,
+      mode: "forensic",
+    });
+
+    await prisma.analysis.update({
+      where: { id: analysis.id },
+      data: {
+        status: "queued",
+        metadata: {
+          ...(analysis.metadata as object || {}),
+          files: allowedPaths.map(d => ({ name: d.name, mime: d.mime, size: d.size })),
+          queuedAt: new Date().toISOString()
+        }
+      }
+    });
+
+    return c.json({
+      id: analysis.id,
+      name: analysis.name,
+      status: "queued",
+      createdAt: analysis.createdAt,
+      message: "Linear synchronizácia bola zaradená do spracovania.",
+    });
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const unavailable =
+      error instanceof Error &&
+      (error.name === "LinearUnavailableError" ||
+        /Linear/i.test(error.message));
+    return c.json(
+      {
+        error: unavailable
+          ? `Linear projekt sa nepodarilo načítať. Analýza troch vyšetrovacích otázok je zastavená. ${message}`
+          : message,
+        status: unavailable ? "linear_unavailable" : "error",
+      },
+      unavailable ? 503 : 500
+    );
   }
 });
 
@@ -653,7 +843,10 @@ app.delete("/api/analyses/:id", async (c) => {
 
   const owned = await prisma.analysis.findFirst({
     where: { id, ownerId },
-    select: { id: true },
+    select: {
+      id: true,
+      files: { select: { id: true } },
+    },
   });
   if (!owned) {
     return c.json({ error: "Spis sa nenašiel alebo nemáte oprávnenie." }, 404);
@@ -676,6 +869,16 @@ app.delete("/api/analyses/:id", async (c) => {
   const deleted = await prisma.analysis.deleteMany({
     where: { id, ownerId }
   });
+
+  if (owned.files.length > 0) {
+    await prisma.file.deleteMany({
+      where: {
+        id: { in: owned.files.map((file) => file.id) },
+        ownerId,
+        analyses: { none: {} },
+      },
+    });
+  }
 
   await logAuditAction(ownerId, "case_deleted", { caseId: id });
   return c.json({ success: true, count: deleted.count });

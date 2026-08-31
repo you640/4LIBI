@@ -18,7 +18,7 @@ export function isPdfFile(name: string, mime = ""): boolean {
 
 export function isImageFile(name: string, mime = ""): boolean {
   const ext = fileExt(name);
-  return mime.startsWith("image/") || ["jpg", "jpeg", "png", "webp"].includes(ext);
+  return mime.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "bmp", "tiff", "tif", "heic", "heif", "gif"].includes(ext);
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -40,6 +40,10 @@ function imageMime(name: string, mime: string): string {
   const ext = fileExt(name);
   if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
   if (ext === "webp") return "image/webp";
+  if (ext === "bmp") return "image/bmp";
+  if (ext === "tiff" || ext === "tif") return "image/tiff";
+  if (ext === "heic" || ext === "heif") return "image/heic";
+  if (ext === "gif") return "image/gif";
   return "image/png";
 }
 
@@ -93,7 +97,7 @@ export async function extractTextFromBytes(
   }
 
   throw new Error(
-    `Nepodporovaný formát: ${mime || name}. Podporované: PDF, foto (JPG/PNG/WEBP), TXT.`
+    `Nepodporovaný formát: ${mime || name}. Podporované: PDF, foto (JPG/PNG/WEBP/BMP/TIFF/HEIC/GIF), TXT.`
   );
 }
 

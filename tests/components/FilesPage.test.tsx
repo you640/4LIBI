@@ -30,7 +30,7 @@ describe("FilesPage", () => {
       expect(screen.getByTestId("files-empty-state")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("files-empty-demo")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Nahrať výpoveď/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Analyzovať Linear dôkazy/i })).toBeInTheDocument();
   });
 
   it("renders analysis list", async () => {

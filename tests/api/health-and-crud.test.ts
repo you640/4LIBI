@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { resetRateLimitStore } from "../../server/middleware";
 import { authHeaders } from "../helpers/auth";
 import { resetApiMocks } from "../setup.api";
@@ -99,6 +99,14 @@ describe("API analyses CRUD", () => {
     const list = await app.request("/api/analyses", { headers: authHeaders() });
     const rows = await list.json();
     expect(rows.length).toBe(1);
+
+    const { queueAnalysisJob } = await import("../../server/queue");
+    const payload = vi.mocked(queueAnalysisJob).mock.calls.at(-1)?.[0] as {
+      mode?: string;
+      filePaths: { linearMeta?: unknown }[];
+    };
+    expect(payload.mode).toBe("sherlock");
+    expect(payload.filePaths.every((p) => p.linearMeta === undefined)).toBe(true);
   });
 
   it("returns 400 when no files", async () => {
@@ -137,6 +145,38 @@ describe("API analyses CRUD", () => {
     });
     const row = await get.json();
     expect(row.name).toBe("Premenovany spis Kauza 01");
+  });
+
+  it("deletes orphaned file rows with a single analysis", async () => {
+    const app = await getApp();
+    const form = new FormData();
+    form.append("files", new File(["test"], "delete-me.txt", { type: "text/plain" }));
+    const create = await app.request("/api/analyze", {
+      method: "POST",
+      headers: authHeaders(),
+      body: form,
+    });
+    const created = await create.json();
+    const { prisma } = await import("../../server/prisma");
+    vi.mocked(prisma.analysis.findFirst).mockResolvedValueOnce({
+      id: created.id,
+      ownerId: "api_user",
+      files: [{ id: "file_1" }],
+    } as never);
+
+    const response = await app.request(`/api/analyses/${created.id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+
+    expect(response.status, await response.clone().text()).toBe(200);
+    expect(prisma.file.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["file_1"] },
+        ownerId: "api_user",
+        analyses: { none: {} },
+      },
+    });
   });
 });
 

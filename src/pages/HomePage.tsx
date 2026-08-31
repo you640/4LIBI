@@ -30,7 +30,7 @@ export function HomePage() {
             data-testid="home-cta-upload"
             onClick={() => navigate("/sherlock")}
           >
-            Nahrať výpoveď (foto/PDF)
+            Analyzovať Linear dôkazy
           </button>
         </div>
 

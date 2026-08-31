@@ -52,6 +52,14 @@ export function CaseHeader({ analysis, analysisId }: CaseHeaderProps) {
         <div className="flex gap-2 mt-2 flex-wrap">
           <button
             type="button"
+            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-on border-0"
+            data-testid="case-otazky-btn"
+            onClick={() => navigate(`/spisy/${analysisId}/otazky`)}
+          >
+            Tri otázky
+          </button>
+          <button
+            type="button"
             className="px-3 py-1.5 rounded-full text-xs font-semibold bg-primary-container text-primary-on-container border-0"
             data-testid="case-export-btn"
             onClick={() => setExportOpen(true)}

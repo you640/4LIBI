@@ -8,12 +8,20 @@ import {
   buildRetryJsonPrompt,
   parseAnalysisResponse,
 } from "./sherlockPrompt";
+import { analyzeForensicCase } from "./forensic/forensicAnalyze";
+import { isAllowedLinearProjectId } from "./forensic/sourceOfTruth";
 import type { Analysis } from "../types";
 
 export type SourceDocument = {
   name: string;
   mime: string;
   bytes: ArrayBuffer;
+  linearMeta?: {
+    linear_project_id: string;
+    linear_issue_id?: string;
+    linear_document_id?: string;
+    attachment_id?: string;
+  };
 };
 
 async function analyzeSingleChunk(
@@ -106,16 +114,19 @@ async function analyzeText(
   return merged;
 }
 
-export async function analyzeFilesFromBytes(
+type ExtractedDocument = {
+  name: string;
+  mime: string;
+  bytes: ArrayBuffer;
+  text: string;
+  linearMeta?: SourceDocument["linearMeta"];
+};
+
+async function extractDocuments(
   files: SourceDocument[],
   apiKey: string
-): Promise<Analysis> {
-  if (files.length === 0) {
-    throw new Error("Žiadne súbory na analýzu.");
-  }
-
-  const startTime = Date.now();
-  const texts: string[] = [];
+): Promise<ExtractedDocument[]> {
+  const extracted: ExtractedDocument[] = [];
   const errors: string[] = [];
 
   for (const file of files) {
@@ -126,7 +137,13 @@ export async function analyzeFilesFromBytes(
         apiKey
       );
       if (text.trim().length >= 10) {
-        texts.push(text);
+        extracted.push({
+          name: file.name,
+          mime: file.mime,
+          bytes: file.bytes,
+          text,
+          linearMeta: file.linearMeta,
+        });
       } else {
         errors.push(`${file.name}: prázdny text`);
       }
@@ -136,15 +153,78 @@ export async function analyzeFilesFromBytes(
     }
   }
 
-  if (texts.length === 0) {
+  if (extracted.length === 0) {
     throw new Error(
       errors.length > 0
         ? `Z žiadneho súboru sa nepodarilo prečítať text. ${errors.join(" ")}`
         : "Z žiadneho súboru sa nepodarilo prečítať text."
     );
   }
+  return extracted;
+}
 
+export async function analyzeFilesFromBytes(
+  files: SourceDocument[],
+  apiKey: string
+): Promise<Analysis> {
+  if (files.length === 0) {
+    throw new Error("Žiadne súbory na analýzu.");
+  }
+
+  const startTime = Date.now();
+  const extracted = await extractDocuments(files, apiKey);
   const documentName =
     files.length === 1 ? files[0].name : `${files.length} dokumentov`;
-  return analyzeText(texts.join("\n\n---\n\n"), documentName, apiKey, startTime);
+  return omitForensic(
+    await analyzeText(
+      extracted.map((doc) => doc.text).join("\n\n---\n\n"),
+      documentName,
+      apiKey,
+      startTime
+    )
+  );
+}
+
+/** Lokálny Sherlock/OCR výsledok nesmie niesť odpovede troch otázok. */
+export function omitForensic(analysis: Analysis): Analysis {
+  const copy: Analysis = { ...analysis };
+  delete copy.forensic;
+  return copy;
+}
+
+/**
+ * Forenzný tok troch otázok. Povolený len pre dokumenty s validným
+ * Linear project ID. Bez metadát zlyhá fail-closed a neprodukuje odpovede.
+ */
+export async function analyzeForensicLinearFromBytes(
+  files: SourceDocument[],
+  apiKey: string
+): Promise<Analysis> {
+  if (files.length === 0) {
+    throw new Error(
+      "Linear projekt neobsahuje prípustné dôkazy. Analýza troch otázok je zastavená."
+    );
+  }
+
+  const invalid = files.filter(
+    (file) => !isAllowedLinearProjectId(file.linearMeta?.linear_project_id)
+  );
+  if (invalid.length > 0) {
+    throw new Error(
+      "Chýba validné Linear metadata alebo povolený project ID. Forenzná analýza je zastavená."
+    );
+  }
+
+  const startTime = Date.now();
+  const extracted = await extractDocuments(files, apiKey);
+  const documentName =
+    files.length === 1 ? files[0].name : `${files.length} dokumentov`;
+  const sherlock = await analyzeText(
+    extracted.map((doc) => doc.text).join("\n\n---\n\n"),
+    documentName,
+    apiKey,
+    startTime
+  );
+  const forensic = await analyzeForensicCase(extracted, apiKey);
+  return { ...sherlock, forensic };
 }

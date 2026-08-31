@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppBar } from "../components/m3/AppBar";
 import { AuditLogViewer } from "../components/audit/AuditLogViewer";
 import { clearAuditLog } from "../lib/auditLog";
 import { deleteAllAnalyses } from "../lib/api";
 
 export function ProfilePage() {
+  const navigate = useNavigate();
   const [cleared, setCleared] = useState(false);
 
   const handleClearAllData = async () => {
@@ -38,6 +40,22 @@ export function ProfilePage() {
         <div className="m3-card-outlined p-5">
           <h3 className="text-sm font-semibold text-surface-on mb-2">Audit záznamy</h3>
           <AuditLogViewer limit={30} />
+        </div>
+
+        <div className="m3-card-outlined p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-surface-on">Lokálna OCR</h3>
+          <p className="text-xs text-outline leading-relaxed">
+            Pomocný režim na extrakciu textu. Nie je dôkazný zdroj troch
+            vyšetrovacích otázok a neukladá forenzné výsledky.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/lokalna-analyza")}
+            className="m3-btn-filled"
+            data-testid="profile-local-ocr-link"
+          >
+            Otvoriť lokálnu OCR analýzu
+          </button>
         </div>
 
         <div className="m3-card-outlined p-5 space-y-3">

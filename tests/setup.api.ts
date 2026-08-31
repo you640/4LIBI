@@ -8,6 +8,7 @@ vi.mock("../server/queue", () => ({
     message: "Čaká v fronte",
   })),
   getJobById: vi.fn(),
+  removeAnalysisJob: vi.fn(async () => undefined),
   startQueueProcessing: vi.fn(),
   cleanupOldJobs: vi.fn(),
   shutdownQueue: vi.fn(),
@@ -87,6 +88,7 @@ vi.mock("../server/prisma", () => {
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },
     hitlStatusRecord: {
+      deleteMany: vi.fn(async () => ({ count: 0 })),
       findMany: vi.fn(async () => [...hitl.values()]),
       upsert: vi.fn(async ({ create, update, where }: { create: Record<string, unknown>; update: Record<string, unknown>; where: { analysisId_eventId: { analysisId: string; eventId: string } } }) => {
         const key = `${where.analysisId_eventId.analysisId}:${where.analysisId_eventId.eventId}`;
