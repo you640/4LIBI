@@ -75,7 +75,12 @@ git diff --check   -> exit 0; bez výstupu
 
 Build obsahuje iba upozornenie na JavaScript chunk väčší než 500 kB. Nejde o chybu buildu.
 
-Presný checkpoint commit a produkčná URL sa doplnia po vytvorení commitu a úspešnom deploymente.
+## Uložený a nasadený stav
+
+- Hlavný checkpoint commit: `1be61dc`
+- Vercel upload-safety commit: `69c360b`
+- Produkčná URL: [https://forenzdetectiv-web.vercel.app](https://forenzdetectiv-web.vercel.app)
+- Overenie po deploymente: `/`, `/sherlock` a `/api/health` vrátili HTTP `200`.
 
 ## Bezpečnosť
 
