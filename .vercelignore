@@ -1,0 +1,12 @@
+# Runtime evidence and local processing artifacts are never part of the web build.
+uploads/
+docs/
+coverage/
+tests.zip
+
+# Development-only material.
+tests/
+scripts/
+concepts/
+db-output.txt
+*.log
