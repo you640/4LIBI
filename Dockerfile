@@ -14,6 +14,7 @@ COPY prisma ./prisma
 COPY server ./server
 COPY src ./src
 COPY scripts ./scripts
+RUN sed -i 's/\r$//' scripts/migrate-and-start.sh && chmod +x scripts/migrate-and-start.sh
 COPY tsconfig.json tsconfig.node.json ./
 COPY prisma.config.ts ./
 
