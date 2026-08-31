@@ -93,16 +93,24 @@ export function OtazkyTab() {
         testId="question-weapons"
         title="1. Tok zbraní"
         question="Kto zbrane objednával, nakupoval, platil, fyzicky preberal a následne predával alebo odovzdával?"
-        answer={result.questions.weapons_flow.answer}
+        answer={
+          result.questions.weapons_flow.confirmed_answer ??
+          result.questions.weapons_flow.answer
+        }
         evidence={result.questions.weapons_flow.actors.flatMap((a) => a.evidence)}
-        missing={result.questions.weapons_flow.missing_evidence}
+        missing={[
+          ...(result.questions.weapons_flow.missing_confirmation || []),
+          ...result.questions.weapons_flow.missing_evidence,
+        ]}
+        candidates={result.questions.weapons_flow.best_supported_candidates}
         onCite={setCitation}
       >
         {result.questions.weapons_flow.actors.map((actor) => (
           <ActorRow
-            key={`${actor.name}-${actor.role}`}
+            key={`${actor.entity_id || actor.name}-${actor.role}`}
             name={actor.name}
             entity={actor.entity}
+            entityId={actor.entity_id}
             role={actor.role}
             confidence={actor.confidence}
             inferred={actor.inferred}
@@ -116,20 +124,28 @@ export function OtazkyTab() {
         testId="question-plan"
         title="2. Autor a riadenie plánu"
         question="Kto celý plán navrhol, riadil alebo koordinoval?"
-        answer={result.questions.plan_author.answer}
+        answer={
+          result.questions.plan_author.confirmed_answer ??
+          result.questions.plan_author.answer
+        }
         evidence={[
           ...result.questions.plan_author.evidence,
           ...result.questions.plan_author.candidates.flatMap((c) => c.evidence),
         ]}
-        missing={result.questions.plan_author.missing_evidence}
+        missing={[
+          ...(result.questions.plan_author.missing_confirmation || []),
+          ...result.questions.plan_author.missing_evidence,
+        ]}
         alternatives={result.questions.plan_author.alternative_explanations}
+        candidates={result.questions.plan_author.best_supported_candidates}
         onCite={setCitation}
       >
         {result.questions.plan_author.candidates.map((c) => (
           <ActorRow
-            key={`${c.name}-${c.role}`}
+            key={`${c.entity_id || c.name}-${c.role}`}
             name={c.name}
             entity={c.entity}
+            entityId={c.entity_id}
             role={c.role}
             confidence={c.confidence}
             inferred={c.inferred}
@@ -143,20 +159,28 @@ export function OtazkyTab() {
         testId="question-financing"
         title="3. Financovanie"
         question="Kto poskytoval finančné prostriedky a celý plán financoval?"
-        answer={result.questions.financing.answer}
+        answer={
+          result.questions.financing.confirmed_answer ??
+          result.questions.financing.answer
+        }
         evidence={[
           ...result.questions.financing.evidence,
           ...result.questions.financing.payers.flatMap((p) => p.evidence),
           ...result.questions.financing.funding_sources.flatMap((s) => s.evidence),
         ]}
-        missing={result.questions.financing.missing_evidence}
+        missing={[
+          ...(result.questions.financing.missing_confirmation || []),
+          ...result.questions.financing.missing_evidence,
+        ]}
+        candidates={result.questions.financing.best_supported_candidates}
         onCite={setCitation}
       >
         {result.questions.financing.payers.map((p) => (
           <ActorRow
-            key={`payer-${p.name}-${p.role}`}
+            key={`payer-${p.entity_id || p.name}-${p.role}`}
             name={p.name}
             entity={p.entity}
+            entityId={p.entity_id}
             role={p.role}
             confidence={p.confidence}
             inferred={p.inferred}
@@ -182,6 +206,27 @@ export function OtazkyTab() {
           />
         ))}
       </QuestionCard>
+
+      {(result.transaction_edges?.length ?? 0) > 0 && (
+        <section className="m3-card-outlined" data-testid="transaction-edges">
+          <h3 className="text-sm font-semibold text-surface-on mb-2">
+            Transakčné hrany
+          </h3>
+          <ul className="space-y-1">
+            {result.transaction_edges!.map((edge) => (
+              <li
+                key={edge.edge_id}
+                className="text-xs text-surface-on"
+                data-testid="transaction-edge"
+                data-role={edge.role}
+              >
+                {edge.from_entity_id} → {edge.to_entity_id} · {edge.role}
+                {edge.instrument ? ` · ${edge.instrument}` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {result.contradictions.length > 0 && (
         <section className="m3-card-outlined border-error" data-testid="otazky-contradictions">
@@ -236,6 +281,7 @@ function QuestionCard({
   evidence,
   missing,
   alternatives,
+  candidates,
   children,
   onCite,
 }: {
@@ -246,6 +292,14 @@ function QuestionCard({
   evidence: ForensicEvidence[];
   missing: string[];
   alternatives?: string[];
+  candidates?: Array<{
+    name: string;
+    role?: string;
+    entity_id?: string;
+    entity_kind?: string;
+    confidence?: number;
+    evidence?: ForensicEvidence[];
+  }>;
   children: ReactNode;
   onCite: (c: Citation) => void;
 }) {
@@ -294,10 +348,67 @@ function QuestionCard({
 
       <div className="space-y-2">{children}</div>
 
+      {candidates && candidates.length > 0 && (
+        <div data-testid={`${testId}-candidates`} className="space-y-2 mt-2">
+          <h3 className="text-[11px] uppercase tracking-wide text-amber-700 font-semibold mb-1">
+            Najlepšie podložení kandidáti (nepotvrdené)
+          </h3>
+          <div className="space-y-2">
+            {candidates.map((c) => {
+              const mainEv = c.evidence?.[0];
+              const evType = mainEv?.evidence_type;
+              return (
+                <div
+                  key={`${c.entity_id || c.name}-${c.role || "cand"}`}
+                  className="rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-2.5 space-y-1.5"
+                  data-testid="candidate-card"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-surface-on">
+                      {c.name}
+                      {c.role ? <span className="text-outline font-normal"> · {c.role}</span> : null}
+                    </span>
+                    <span className="text-[11px] font-mono text-outline">
+                      {Math.round((c.confidence ?? 0) * 100)} %
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {c.entity_id && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-variant text-surface-on">
+                        {c.entity_id}
+                      </span>
+                    )}
+                    {evType && <EvidenceBadge type={evType} />}
+                  </div>
+                  {c.evidence && c.evidence.length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      {c.evidence.slice(0, 2).map((ev, idx) => (
+                        <div
+                          key={idx}
+                          className="text-[11px] text-surface-on/80 border-l-2 border-amber-400 pl-2 cursor-pointer hover:bg-amber-100/50"
+                          onClick={() => onCite({ ...ev, actorName: c.name })}
+                        >
+                          <p className="italic">„{ev.quote}“</p>
+                          <p className="text-[10px] text-outline mt-0.5">
+                            {ev.linear_issue_id ? `Linear: ${ev.linear_issue_id}` : ev.document_id}
+                            {ev.page != null ? ` · s. ${ev.page}` : ""}
+                            {ev.source_group_id ? ` · group: ${ev.source_group_id}` : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {missing.length > 0 && (
         <div data-testid={`${testId}-missing`}>
           <h3 className="text-[11px] uppercase tracking-wide text-outline mb-1">
-            Chýbajúce dôkazy
+            Chýbajúce dôkazy / missing_confirmation
           </h3>
           <ul className="text-xs text-outline list-disc pl-4 space-y-0.5">
             {missing.map((item) => (
@@ -334,6 +445,7 @@ function QuestionCard({
 function ActorRow({
   name,
   entity,
+  entityId,
   role,
   confidence,
   inferred,
@@ -343,6 +455,7 @@ function ActorRow({
 }: {
   name: string;
   entity: string | null;
+  entityId?: string;
   role: string;
   confidence: number;
   inferred: boolean;
@@ -357,6 +470,8 @@ function ActorRow({
     <div
       className="rounded-xl border border-outline-variant bg-surface-low p-3 space-y-2"
       data-testid="forensic-actor"
+      data-role={role}
+      data-entity-id={entityId || ""}
       data-as-fact={asFact ? "true" : "false"}
     >
       <div className="flex items-start justify-between gap-2">
@@ -365,6 +480,11 @@ function ActorRow({
             {name}
           </p>
           {entity && <p className="text-[11px] text-outline">{entity}</p>}
+          {entityId && (
+            <p className="text-[10px] text-outline font-mono" data-testid="entity-id">
+              {entityId}
+            </p>
+          )}
         </div>
         <span className="text-[11px] font-medium text-outline whitespace-nowrap">
           {Math.round(confidence * 100)} %

@@ -24,6 +24,7 @@
     "test:ci": "vitest run --project unit --project api --project components --coverage",
     "test:e2e": "playwright test",
     "test:e2e:full": "playwright test --config=playwright.fullstack.config.ts",
+    "test:pwa": "vitest run --project unit tests/unit/pwa.test.ts && playwright test tests/e2e/pwa.spec.ts",
     "pretest:all": "node scripts/check-env.mjs",
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
     "health-check": "node scripts/health-check.mjs",

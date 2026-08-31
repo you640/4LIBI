@@ -31,11 +31,11 @@ export function TimelineTab() {
       </p>
       <div className="relative pl-7">
         <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-outline-variant" />
-        {events.map((event) => {
+        {events.map((event, idx) => {
           const conflict = event.tags.includes("rozpor");
           return (
             <button
-              key={event.id}
+              key={`${event.id}_${idx}`}
               type="button"
               className="relative block w-full text-left mb-5 bg-transparent border-0 p-0"
               onClick={() => {

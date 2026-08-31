@@ -227,14 +227,14 @@ export function RozporyTab() {
       )}
 
       <div className="space-y-3" data-testid="rozpory-list">
-        {visible.map((event) => {
+        {visible.map((event, idx) => {
           const status = getHitlStatus(analysisId, event.id);
           const sev = severity(event);
           const geo = geoResults[event.id];
           const canGeo = Boolean(deriveGeospatialCheck(analysis, event));
           return (
             <article
-              key={event.id}
+              key={`${event.id}_${idx}`}
               data-testid="rozpory-event"
               className={`m3-card-outlined ${
                 status === "confirmed"

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { directWeaponsAnalysis } from "../fixtures/forensic";
 import {
   DOCUMENT_TEXT_BEGIN,
+  FORENSIC_PROMPT_VERSION,
   FORENSIC_SYSTEM_PROMPT,
 } from "../../src/lib/forensic/forensicPrompt";
 import { FORENSIC_JSON_SCHEMA } from "../../src/lib/forensic/forensicSchema";
@@ -39,7 +40,7 @@ describe("forensicAnalyze", () => {
     expect(record.status).toBe("ready");
     expect(record.meta.document_id).toBe("1-faktura.pdf");
     expect(record.meta.document_hash).toMatch(/^[a-f0-9]{64}$/);
-    expect(record.meta.prompt_version).toBe("1.0.0");
+    expect(record.meta.prompt_version).toBe(FORENSIC_PROMPT_VERSION);
     expect(record.meta.model).toBe("mistral-large-latest");
     expect(record.meta.analyzed_at).toBeTruthy();
     expect(record.result?.document_hash).toBe(record.meta.document_hash);

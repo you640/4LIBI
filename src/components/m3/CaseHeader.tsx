@@ -23,22 +23,22 @@ export function CaseHeader({ analysis, analysisId }: CaseHeaderProps) {
 
   return (
     <>
-      <div className="m3-case-header px-4 pb-3 pt-2 border-b border-outline-variant bg-gradient-to-b from-surface-low to-surface">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-outline mb-1">
-          Prípad
+      <div className="m3-case-header px-4 pb-3.5 pt-2.5 border-b border-outline-variant bg-surface">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-outline mb-1">
+          Vyšetrovací spis
         </p>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-surface-on truncate">
+            <h2 className="text-[15px] font-semibold text-surface-on truncate leading-snug">
               {analysis.metadata.document_name}
             </h2>
-            <p className="text-[11px] text-outline mt-1">
+            <p className="text-[11px] text-outline mt-0.5">
               {formatCaseDate(analysis.metadata.upload_date)}
             </p>
           </div>
-          <div className="flex-shrink-0 text-center px-3 py-2 rounded-xl bg-error-container text-error-on-container">
-            <span className="block text-lg font-bold leading-none">{score}</span>
-            <span className="text-[10px] font-medium">{label}</span>
+          <div className="flex-shrink-0 text-center px-2.5 py-1.5 rounded-lg bg-error-container text-error-on-container border border-error/15">
+            <span className="block text-base font-bold leading-none">{score}</span>
+            <span className="text-[9.5px] font-semibold uppercase tracking-tight">{label}</span>
           </div>
         </div>
 
@@ -49,10 +49,10 @@ export function CaseHeader({ analysis, analysisId }: CaseHeaderProps) {
           Rozhodnutia ostávajú na vás — AI len navrhuje.
         </p>
 
-        <div className="flex gap-2 mt-2 flex-wrap">
+        <div className="flex gap-1.5 mt-2.5 flex-wrap">
           <button
             type="button"
-            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-on border-0"
+            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-primary-on border-0 hover:bg-blue-800 transition-colors shadow-xs"
             data-testid="case-otazky-btn"
             onClick={() => navigate(`/spisy/${analysisId}/otazky`)}
           >
@@ -60,7 +60,7 @@ export function CaseHeader({ analysis, analysisId }: CaseHeaderProps) {
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-primary-container text-primary-on-container border-0"
+            className="px-3 py-1.5 rounded-md text-xs font-semibold bg-primary-container text-primary-on-container border border-primary/20 hover:bg-blue-100 transition-colors"
             data-testid="case-export-btn"
             onClick={() => setExportOpen(true)}
           >
@@ -68,7 +68,7 @@ export function CaseHeader({ analysis, analysisId }: CaseHeaderProps) {
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 rounded-full text-xs font-medium bg-surface-lowest border border-outline-variant text-surface-on"
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-surface-lowest border border-outline-variant text-surface-on hover:bg-surface-low transition-colors"
             data-testid="case-audit-btn"
             onClick={() => navigate(`/spisy/${analysisId}/audit`)}
           >
@@ -76,7 +76,7 @@ export function CaseHeader({ analysis, analysisId }: CaseHeaderProps) {
           </button>
         </div>
 
-        <div className="flex gap-2 mt-3 flex-wrap">
+        <div className="grid grid-cols-4 gap-1.5 mt-3">
           {[
             { val: contradictions, lbl: "Rozpory" },
             { val: analysis.timeline.length, lbl: "Udalosti" },
@@ -85,10 +85,10 @@ export function CaseHeader({ analysis, analysisId }: CaseHeaderProps) {
           ].map((s) => (
             <div
               key={s.lbl}
-              className="flex-1 min-w-[68px] text-center px-2 py-2 rounded-lg bg-surface-lowest border border-outline-variant"
+              className="text-center px-1.5 py-1.5 rounded-md bg-surface-lowest border border-outline-variant/80 shadow-xs"
             >
-              <span className="block text-sm font-bold text-surface-on">{s.val}</span>
-              <span className="text-[10px] text-outline">{s.lbl}</span>
+              <span className="block text-[13px] font-bold text-surface-on leading-none mb-0.5">{s.val}</span>
+              <span className="text-[9.5px] font-medium text-outline uppercase tracking-tight">{s.lbl}</span>
             </div>
           ))}
         </div>

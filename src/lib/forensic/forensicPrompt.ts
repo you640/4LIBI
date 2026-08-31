@@ -27,11 +27,31 @@ Každé tvrdenie klasifikuj ako:
 - hypothesis  zatiaľ nepreukázaná možnosť,
 - contradiction  nezlučiteľné údaje medzi zdrojmi (uved v contradictions, nie ako potvrdený fakt).
 
-Výpoveď osoby nie je automaticky dokázaný fakt. Funkcia konateľa, vlastníctvo firmy, držba licencie, prístup k peniazom ani jeden podpis samy osebe nedokazujú autorstvo alebo financovanie plánu. Platiteľ faktúry (payer) nemusí byť skutočným zdrojom peňazí (funding_source). Kupujúca firma (buyer_entity) nie je automaticky osobou, ktorá zbrane fyzicky prevzala (physical_receiver). Tieto role MUSÍŠ zapisovať oddelene (payer vs funding_source, buyer_entity vs physical_receiver).
+Osoba a firma majú oddelené entity_id (prefix person: vs company:). Nikdy nezlučuj osobu s firmou, aj keď majú podobné meno.
 
-Zachovávaj pôvodné mená, dátumy, sumy, čísla faktúr, licencie a sériové čísla. Rozpory neopravuj, ale eviduj v contradictions.
+Role zapisuj oddelene a presne:
+- buyer_entity — kupujúca firma, nie fyzická osoba
+- invoice_payer — platiteľ faktúry
+- cash_payer — platiteľ v hotovosti
+- account_holder — držiteľ účtu
+- funding_source — skutočný zdroj peňazí
+- intermediary — sprostredkovateľ
+- physical_receiver — kto zbrane fyzicky prevzal
+- alleged_next_recipient — tvrdený ďalší príjemca
 
-Každý záver musí obsahovať document_id, stranu, krátku presnú citáciu a evidence_type. Ak odpoveď nie je doložená, vráť answer: null, confidence: 0 a konkrétny missing_evidence. Inferencia ani hypotéza nesmú byť prezentované ako potvrdený fakt. Neurčuj vinu ani právnu kvalifikáciu. Vráť iba výstup zodpovedajúci JSON Schema forensic_analysis.
+Funkcia konateľa, vlastníctvo firmy, držba licencie, prístup k peniazom ani jeden podpis samy osebe nedokazujú autorstvo alebo financovanie plánu. Platiteľ faktúry (payer) nemusí byť skutočným zdrojom peňazí (funding_source). buyer_entity nie je physical_receiver.
+
+Transakčné toky uveď v transaction_edges (from_entity_id → to_entity_id, role, instrument).
+
+Pre každú z troch otázok vyplň:
+- confirmed_answer — len ak je priamy dôkaz alebo corroboration z dvoch nezávislých source_group_id; inak null
+- best_supported_candidates — kandidáti s evidenciami, nie potvrdený fakt
+- missing_confirmation — čo chýba na potvrdenie
+- answer — kópia confirmed_answer (null, ak nie je potvrdené)
+
+OCR, prepis a originál z tej istej zápisnice zdieľajú source_group_id a nie sú nezávislé potvrdenie.
+
+Zachovávaj pôvodné mená, dátumy, sumy, čísla faktúr, licencie a sériové čísla. Rozpory neopravuj, eviduj v contradictions. Neurčuj vinu. Vráť iba JSON podľa schémy forensic_analysis.
 
 Prompt verzia: ${FORENSIC_PROMPT_VERSION}`;
 

@@ -30,10 +30,16 @@ describe("forensic JSON schema", () => {
         financing: emptyForensicDocumentAnalysis("x").questions.financing,
         plan_author: {
           answer: "Možno Peter Kováč navrhol plán",
+          confirmed_answer: null,
+          best_supported_candidates: [],
+          missing_confirmation: ["Chýba priamy dôkaz."],
+          status: "insufficient_evidence",
           candidates: [
             {
+              entity_id: "person:peter-kovac",
               name: "Peter Kováč",
               entity: null,
+              entity_kind: "person",
               role: "designer",
               found_in_text: false,
               inferred: true,
@@ -144,10 +150,16 @@ describe("forensic JSON schema", () => {
       questions: {
         weapons_flow: {
           answer: "VINNY JAN",
+          confirmed_answer: null,
+          best_supported_candidates: [],
+          missing_confirmation: [],
+          status: "insufficient_evidence",
           actors: [
             {
+              entity_id: "person:vinny-jan",
               name: "VINNY JAN",
               entity: null,
+              entity_kind: "person",
               role: "unknown",
               found_in_text: true,
               inferred: false,
@@ -182,10 +194,16 @@ describe("forensic JSON schema", () => {
         plan_author: emptyForensicDocumentAnalysis("x").questions.plan_author,
         financing: {
           answer: "Faktúru zaplatila Arms SK s.r.o.; zdroj peňazí nie je doložený.",
+          confirmed_answer: null,
+          best_supported_candidates: [],
+          missing_confirmation: [],
+          status: "insufficient_evidence",
           payers: [
             {
+              entity_id: "company:arms-sk-s-r-o",
               name: "Arms SK s.r.o.",
               entity: "Arms SK s.r.o.",
+              entity_kind: "company",
               role: "invoice_payer",
               found_in_text: true,
               inferred: false,
@@ -200,8 +218,10 @@ describe("forensic JSON schema", () => {
           ],
           funding_sources: [
             {
+              entity_id: "person:nezisteny",
               name: "nezistený",
               entity: null,
+              entity_kind: "person",
               origin: null,
               distinct_from_invoice_payer: true,
               confidence: 0,
@@ -237,10 +257,16 @@ describe("forensic JSON schema", () => {
         weapons_flow: {
           answer:
             "Kupujúcim je Arms SK s.r.o.; zbrane fyzicky prevzal Ján Novák.",
+          confirmed_answer: null,
+          best_supported_candidates: [],
+          missing_confirmation: [],
+          status: "insufficient_evidence",
           actors: [
             {
+              entity_id: "company:arms-sk-s-r-o",
               name: "Arms SK s.r.o.",
               entity: "Arms SK s.r.o.",
+              entity_kind: "company",
               role: "buyer",
               found_in_text: true,
               inferred: false,
@@ -251,8 +277,10 @@ describe("forensic JSON schema", () => {
               contradicting_evidence: [],
             },
             {
+              entity_id: "person:jan-novak",
               name: "Ján Novák",
               entity: "Arms SK s.r.o.",
+              entity_kind: "person",
               role: "physical_receiver",
               found_in_text: true,
               inferred: false,
@@ -280,5 +308,144 @@ describe("forensic JSON schema", () => {
     );
     expect(buyer?.name).toBe("Arms SK s.r.o.");
     expect(receiver?.name).toBe("Ján Novák");
+  });
+
+  it("chybné entity_id z modelu sa opraví podľa kind a name", () => {
+    const raw = validForensicAnalysis({
+      entities: [
+        {
+          entity_id: "person:12345",
+          name: "Arms SK s.r.o.",
+          type: "company",
+          identifiers: [],
+          aliases: [],
+        },
+      ],
+      questions: {
+        weapons_flow: {
+          answer: null,
+          confirmed_answer: null,
+          best_supported_candidates: [],
+          missing_confirmation: [],
+          status: "insufficient_evidence",
+          actors: [
+            {
+              entity_id: "wrong:prefix",
+              name: "Ján Novák",
+              entity: null,
+              entity_kind: "person",
+              role: "physical_receiver",
+              found_in_text: true,
+              inferred: false,
+              confidence: 0.9,
+              evidence: [ev({ quote: "Ján Novák prevzal tovar" })],
+              contradicting_evidence: [],
+            },
+          ],
+          missing_evidence: [],
+        },
+        plan_author: emptyForensicDocumentAnalysis("x").questions.plan_author,
+        financing: emptyForensicDocumentAnalysis("x").questions.financing,
+      },
+    });
+
+    const grounded = groundForensicResult(
+      raw,
+      "Arms SK s.r.o. Ján Novák prevzal tovar",
+      { documentId: "doc.pdf", documentHash: "h1" }
+    );
+
+    expect(grounded.entities[0].entity_id).toBe("company:arms-sk-s-r-o");
+    expect(grounded.questions.weapons_flow.actors[0].entity_id).toBe("person:jan-novak");
+  });
+
+  it("transaction_edge bez evidencie je odmietnutá", () => {
+    const raw = validForensicAnalysis({
+      entities: [
+        {
+          entity_id: "company:a",
+          name: "Firma A",
+          type: "company",
+          identifiers: [],
+          aliases: [],
+        },
+        {
+          entity_id: "company:b",
+          name: "Firma B",
+          type: "company",
+          identifiers: [],
+          aliases: [],
+        },
+      ],
+      transaction_edges: [
+        {
+          edge_id: "e1",
+          from_entity_id: "company:a",
+          to_entity_id: "company:b",
+          role: "buyer",
+          date: null,
+          amount: null,
+          currency: null,
+          instrument: null,
+          evidence: [], // no evidence!
+        },
+      ],
+    });
+
+    const grounded = groundForensicResult(
+      raw,
+      "Firma A Firma B",
+      { documentId: "doc.pdf", documentHash: "h1" }
+    );
+
+    expect(grounded.transaction_edges).toHaveLength(0);
+  });
+
+  it("transaction_edge odkazujúca na neexistujúcu entitu je odmietnutá", () => {
+    const raw = validForensicAnalysis({
+      entities: [
+        {
+          entity_id: "company:a",
+          name: "Firma A",
+          type: "company",
+          identifiers: [],
+          aliases: [],
+        },
+      ],
+      transaction_edges: [
+        {
+          edge_id: "e1",
+          from_entity_id: "company:a",
+          to_entity_id: "company:non-existent",
+          role: "buyer",
+          date: null,
+          amount: null,
+          currency: null,
+          instrument: null,
+          evidence: [ev({ quote: "Firma A dodala tovar" })],
+        },
+      ],
+    });
+
+    const grounded = groundForensicResult(
+      raw,
+      "Firma A dodala tovar",
+      { documentId: "doc.pdf", documentHash: "h1" }
+    );
+
+    expect(grounded.transaction_edges).toHaveLength(0);
+  });
+
+  it("JSON Schema validácia zlyhá pri chýbajúcich required poliach", () => {
+    const incomplete = {
+      document_id: "doc.pdf",
+      document_hash: null,
+      language: "sk",
+      // missing questions, entities, transactions, transaction_edges
+    };
+
+    const errors = validateJsonSchema(incomplete, FORENSIC_JSON_SCHEMA);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((e) => e.includes("required") || e.includes("missing"))).toBe(true);
   });
 });

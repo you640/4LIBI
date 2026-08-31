@@ -64,7 +64,7 @@ function validateNode(
     const properties = (schema.properties || {}) as Record<string, Record<string, unknown>>;
     const required = (schema.required || []) as string[];
     for (const key of required) {
-      if (!(key in obj)) errors.push(`${path}.${key}: chýba povinné pole`);
+      if (!(key in obj)) errors.push(`${path}.${key}: chýba povinné pole (required field missing)`);
     }
     if (schema.additionalProperties === false) {
       for (const key of Object.keys(obj)) {
@@ -130,6 +130,14 @@ export function isInstructionLike(text: string): boolean {
   return INSTRUCTION_RE.test(text);
 }
 
+import {
+  canConfirmAnswer,
+} from "./forensicAggregate";
+import {
+  inferEntityKind,
+  normalizeEntityId,
+} from "./types";
+
 export function groundForensicResult(
   analysis: ForensicDocumentAnalysis,
   documentText: string,
@@ -142,6 +150,9 @@ export function groundForensicResult(
 
   const filterEvidence = (items: typeof analysis.questions.plan_author.evidence) =>
     items.filter((ev) => {
+      if (!ev.quote || !ev.quote.trim()) {
+        return false;
+      }
       if (ev.linear_project_id && !isAllowedLinearProjectId(ev.linear_project_id)) {
         if (!warnings.includes(FOREIGN_SOURCE_WARNING)) {
           warnings.push(FOREIGN_SOURCE_WARNING);
@@ -162,62 +173,147 @@ export function groundForensicResult(
       return true;
     });
 
-  grounded.questions.weapons_flow.actors = grounded.questions.weapons_flow.actors.map((actor) => ({
-    ...actor,
-    evidence: filterEvidence(actor.evidence),
-    contradicting_evidence: filterEvidence(actor.contradicting_evidence),
-    name: actor.name,
-  }));
+  // Normalize entities
+  grounded.entities = (grounded.entities || [])
+    .filter((e) => e.name && e.name.trim().length > 0)
+    .map((e) => {
+      const kind = inferEntityKind(undefined, e.name, e.type);
+      return {
+        ...e,
+        type: kind,
+        entity_id: normalizeEntityId(kind, e.name, e.entity_id),
+      };
+    });
+
+  const knownEntityIds = new Set(grounded.entities.map((e) => e.entity_id));
+
+  // Normalize actors
+  grounded.questions.weapons_flow.actors = (grounded.questions.weapons_flow.actors || [])
+    .filter((actor) => actor.name && actor.name.trim().length > 0)
+    .map((actor) => {
+      const kind = inferEntityKind(actor.role, actor.name, actor.entity_kind);
+      const entity_id = normalizeEntityId(kind, actor.name, actor.entity_id);
+      knownEntityIds.add(entity_id);
+      return {
+        ...actor,
+        entity_kind: kind,
+        entity_id,
+        evidence: filterEvidence(actor.evidence || []),
+        contradicting_evidence: filterEvidence(actor.contradicting_evidence || []),
+      };
+    });
 
   const wfEvidence = grounded.questions.weapons_flow.actors.flatMap((a) => a.evidence);
-  if (grounded.questions.weapons_flow.answer && wfEvidence.length === 0) {
-    grounded.questions.weapons_flow.missing_evidence = unique([
-      ...grounded.questions.weapons_flow.missing_evidence,
-      "Chýba citácia z dokumentu pre tok zbraní.",
-    ]);
+  if (!canConfirmAnswer(wfEvidence)) {
+    grounded.questions.weapons_flow.confirmed_answer = null;
     grounded.questions.weapons_flow.answer = null;
+    grounded.questions.weapons_flow.status = "insufficient_evidence";
+    if (wfEvidence.length === 0) {
+      grounded.questions.weapons_flow.missing_evidence = unique([
+        ...grounded.questions.weapons_flow.missing_evidence,
+        "Chýba citácia z dokumentu pre tok zbraní.",
+      ]);
+    }
   }
 
-  grounded.questions.plan_author.evidence = filterEvidence(grounded.questions.plan_author.evidence);
-  grounded.questions.plan_author.candidates = grounded.questions.plan_author.candidates.map((c) => ({
-    ...c,
-    evidence: filterEvidence(c.evidence),
-    contradicting_evidence: filterEvidence(c.contradicting_evidence),
-  }));
+  // Normalize candidates
+  grounded.questions.plan_author.evidence = filterEvidence(grounded.questions.plan_author.evidence || []);
+  grounded.questions.plan_author.candidates = (grounded.questions.plan_author.candidates || [])
+    .filter((c) => c.name && c.name.trim().length > 0)
+    .map((c) => {
+      const kind = inferEntityKind(c.role, c.name, c.entity_kind);
+      const entity_id = normalizeEntityId(kind, c.name, c.entity_id);
+      knownEntityIds.add(entity_id);
+      return {
+        ...c,
+        entity_kind: kind,
+        entity_id,
+        evidence: filterEvidence(c.evidence || []),
+        contradicting_evidence: filterEvidence(c.contradicting_evidence || []),
+      };
+    });
   const paEvidence = [
     ...grounded.questions.plan_author.evidence,
     ...grounded.questions.plan_author.candidates.flatMap((c) => c.evidence),
   ];
-  if (grounded.questions.plan_author.answer && paEvidence.length === 0) {
+  if (!canConfirmAnswer(paEvidence)) {
+    grounded.questions.plan_author.confirmed_answer = null;
     grounded.questions.plan_author.answer = null;
     grounded.questions.plan_author.confidence = 0;
-    grounded.questions.plan_author.missing_evidence = unique([
-      ...grounded.questions.plan_author.missing_evidence,
-      "Chýba citácia z dokumentu pre autora/koordinátora plánu.",
-    ]);
+    grounded.questions.plan_author.status = "insufficient_evidence";
+    if (paEvidence.length === 0) {
+      grounded.questions.plan_author.missing_evidence = unique([
+        ...grounded.questions.plan_author.missing_evidence,
+        "Chýba citácia z dokumentu pre autora/koordinátora plánu.",
+      ]);
+    }
   }
 
-  grounded.questions.financing.evidence = filterEvidence(grounded.questions.financing.evidence);
-  grounded.questions.financing.payers = grounded.questions.financing.payers.map((p) => ({
-    ...p,
-    evidence: filterEvidence(p.evidence),
-  }));
-  grounded.questions.financing.funding_sources = grounded.questions.financing.funding_sources.map(
-    (s) => ({ ...s, evidence: filterEvidence(s.evidence) })
-  );
+  // Normalize payers & funding sources
+  grounded.questions.financing.evidence = filterEvidence(grounded.questions.financing.evidence || []);
+  grounded.questions.financing.payers = (grounded.questions.financing.payers || [])
+    .filter((p) => p.name && p.name.trim().length > 0)
+    .map((p) => {
+      const kind = inferEntityKind(p.role, p.name, p.entity_kind);
+      const entity_id = normalizeEntityId(kind, p.name, p.entity_id);
+      knownEntityIds.add(entity_id);
+      return {
+        ...p,
+        entity_kind: kind,
+        entity_id,
+        evidence: filterEvidence(p.evidence || []),
+      };
+    });
+  grounded.questions.financing.funding_sources = (grounded.questions.financing.funding_sources || [])
+    .filter((s) => s.name && s.name.trim().length > 0)
+    .map((s) => {
+      const kind = inferEntityKind("funding_source", s.name, s.entity_kind);
+      const entity_id = normalizeEntityId(kind, s.name, s.entity_id);
+      knownEntityIds.add(entity_id);
+      return {
+        ...s,
+        entity_kind: kind,
+        entity_id,
+        evidence: filterEvidence(s.evidence || []),
+      };
+    });
   const finEvidence = [
     ...grounded.questions.financing.evidence,
     ...grounded.questions.financing.payers.flatMap((p) => p.evidence),
     ...grounded.questions.financing.funding_sources.flatMap((s) => s.evidence),
   ];
-  if (grounded.questions.financing.answer && finEvidence.length === 0) {
+  if (!canConfirmAnswer(finEvidence)) {
+    grounded.questions.financing.confirmed_answer = null;
     grounded.questions.financing.answer = null;
     grounded.questions.financing.confidence = 0;
-    grounded.questions.financing.missing_evidence = unique([
-      ...grounded.questions.financing.missing_evidence,
-      "Chýba citácia z dokumentu pre financovanie.",
-    ]);
+    grounded.questions.financing.status = "insufficient_evidence";
+    if (finEvidence.length === 0) {
+      grounded.questions.financing.missing_evidence = unique([
+        ...grounded.questions.financing.missing_evidence,
+        "Chýba citácia z dokumentu pre financovanie.",
+      ]);
+    }
   }
+
+  // Validate transaction_edges
+  grounded.transaction_edges = (grounded.transaction_edges || [])
+    .map((edge) => ({
+      ...edge,
+      evidence: filterEvidence(edge.evidence || []),
+    }))
+    .filter((edge) => {
+      if (edge.evidence.length === 0) return false;
+      if (!edge.from_entity_id || !edge.to_entity_id) return false;
+      if (edge.from_entity_id === edge.to_entity_id) return false; // discard self-edge
+      if (!knownEntityIds.has(edge.from_entity_id) || !knownEntityIds.has(edge.to_entity_id)) {
+        return false;
+      }
+      return true;
+    })
+    .map((edge) => ({
+      ...edge,
+      edge_id: `${edge.from_entity_id}->${edge.to_entity_id}:${edge.role}:${edge.date || "nodate"}`,
+    }));
 
   grounded.warnings = unique(warnings);
   return grounded;

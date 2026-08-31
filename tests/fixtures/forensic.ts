@@ -43,10 +43,17 @@ export function directWeaponsAnalysis(quote: string): ForensicDocumentAnalysis {
       weapons_flow: {
         answer:
           "Ján Novák objednal zbrane, zaplatil faktúru FA-2023-441 a fyzicky ich prevzal.",
+        confirmed_answer:
+          "Ján Novák objednal zbrane, zaplatil faktúru FA-2023-441 a fyzicky ich prevzal.",
+        best_supported_candidates: [],
+        missing_confirmation: [],
+        status: "sufficient",
         actors: [
           {
+            entity_id: "person:jan-novak",
             name: "Ján Novák",
             entity: null,
+            entity_kind: "person",
             role: "orderer",
             found_in_text: true,
             inferred: false,
@@ -55,8 +62,10 @@ export function directWeaponsAnalysis(quote: string): ForensicDocumentAnalysis {
             contradicting_evidence: [],
           },
           {
+            entity_id: "person:jan-novak",
             name: "Ján Novák",
             entity: null,
+            entity_kind: "person",
             role: "physical_receiver",
             found_in_text: true,
             inferred: false,

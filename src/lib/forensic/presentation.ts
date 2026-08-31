@@ -23,7 +23,12 @@ export const WEAPONS_ROLE_LABEL: Record<string, string> = {
   director: "Riaditeľ plánu",
   coordinator: "Koordinátor",
   invoice_payer: "Platiteľ faktúry",
+  cash_payer: "Platiteľ v hotovosti",
+  account_holder: "Držiteľ účtu",
   funding_source: "Zdroj financovania",
+  intermediary: "Sprostredkovateľ",
+  buyer_entity: "Kupujúca firma",
+  alleged_next_recipient: "Tvrdený ďalší príjemca",
 };
 
 const CONFIRMED_TYPES: ForensicEvidenceType[] = [

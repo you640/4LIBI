@@ -60,9 +60,11 @@ export async function fetchLinearEvidence(
             : "accompanying_record";
 
     const bytes =
-      source.bytes && source.bytes.byteLength > 0
-        ? source.bytes
-        : (new TextEncoder().encode(source.text).buffer as ArrayBuffer);
+      source.text.trim().length > 0
+        ? (new TextEncoder().encode(source.text).buffer as ArrayBuffer)
+        : source.bytes && source.bytes.byteLength > 0
+          ? source.bytes
+          : (new TextEncoder().encode(source.text).buffer as ArrayBuffer);
 
     evidenceList.push({
       name: source.title,

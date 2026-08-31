@@ -57,6 +57,13 @@ describe("Court Dossier & Cross-Examination Engine", () => {
     expect(questions[0].question).toContain("Mohli by ste bližšie vysvetliť");
   });
 
+  it("vygeneruje forenzné otázky pre toky a roly", () => {
+    const questions = buildLocalCrossExamQuestions(sampleContradictions, "forensic");
+    expect(questions.length).toBe(2);
+    expect(questions[0].question).toContain("Na základe akej zmluvy");
+    expect(questions[0].rationale).toContain("oddelenia rolí");
+  });
+
   it("vygeneruje formálny súdny spis (Court Dossier) v Markdown formáte", () => {
     const sampleAnalysis: Analysis = {
       metadata: {
@@ -98,5 +105,133 @@ describe("Court Dossier & Cross-Examination Engine", () => {
     expect(markdown).toContain("Jozef Podozrivý");
     expect(markdown).toContain("## 2. CHRONOLOGICKÁ REKONŠTRUKCIA UDALOSTÍ");
     expect(markdown).toContain("Pohyb na pumpe");
+  });
+
+  it("zahrnie forenznú analýzu troch otázok a transakčné toky do súdneho protokolu", () => {
+    const sampleAnalysisWithForensic: Analysis = {
+      metadata: {
+        document_name: "Forenzný spis zbraní",
+        language: "sk",
+        page_count: 15,
+        upload_date: "2026-08-31T10:00:00Z",
+      },
+      persons: [
+        { id: "p1", name: "Michal Žember", role: "svedok", description: "Výpoveď", aliases: [] },
+      ],
+      evidence: [],
+      relationships: [],
+      timeline: [],
+      forensic: {
+        status: "ready",
+        prompt_version: "2026-08-31.1",
+        model: "mistral-large-latest",
+        analyzed_at: "2026-08-31T10:00:00Z",
+        documents: [],
+        diagnostics: null,
+        case_level: {
+          document_id: "case",
+          document_hash: "hash123456",
+          language: "sk",
+          questions: {
+            weapons_flow: {
+              answer: null,
+              confirmed_answer: null,
+              status: "insufficient_evidence",
+              missing_confirmation: ["Chýba kúpna zmluva"],
+              best_supported_candidates: [
+                {
+                  name: "Hermes s.r.o.",
+                  entity: "Hermes s.r.o.",
+                  entity_kind: "company",
+                  role: "buyer_entity",
+                  entity_id: "company:hermes-s-r-o",
+                  found_in_text: true,
+                  inferred: false,
+                  confidence: 0.6,
+                  evidence: [],
+                  contradicting_evidence: [],
+                },
+              ],
+              actors: [],
+              missing_evidence: [],
+            },
+            plan_author: {
+              answer: null,
+              confirmed_answer: null,
+              confidence: 0.3,
+              status: "insufficient_evidence",
+              missing_confirmation: ["Chýba priamy písomný rozkaz"],
+              best_supported_candidates: [],
+              candidates: [],
+              evidence: [],
+              alternative_explanations: [],
+              missing_evidence: [],
+            },
+            financing: {
+              answer: null,
+              confirmed_answer: null,
+              confidence: 0.5,
+              status: "insufficient_evidence",
+              missing_confirmation: ["Chýba bankový výpis"],
+              best_supported_candidates: [
+                {
+                  name: "VÚB účet",
+                  entity: "VÚB",
+                  role: "invoice_payer",
+                  entity_id: "company:vub",
+                  entity_kind: "company",
+                  found_in_text: true,
+                  inferred: false,
+                  confidence: 0.5,
+                  evidence: [],
+                },
+              ],
+              payers: [],
+              funding_sources: [],
+              evidence: [],
+              missing_evidence: [],
+            },
+          },
+          entities: [],
+          transactions: [],
+          transaction_edges: [
+            {
+              edge_id: "e1",
+              from_entity_id: "company:hermes",
+              to_entity_id: "person:marjov",
+              role: "invoice_payer",
+              date: "2026-06-18",
+              amount: "24 000",
+              currency: "EUR",
+              instrument: "account",
+              evidence: [
+                {
+                  document_id: "YOU-122",
+                  quote: "Platba prebehla cez účet.",
+                  evidence_type: "direct_evidence",
+                  linear_project_id: "cf930d36-765a-4e6f-b170-2d8a2da83f0b",
+                  linear_issue_id: "YOU-122",
+                  linear_document_id: null,
+                  attachment_id: null,
+                  page: 2,
+                },
+              ],
+            },
+          ],
+          missing_evidence: [],
+          contradicting_evidence: [],
+          contradictions: [],
+          warnings: [],
+        },
+      },
+    };
+
+    const markdown = generateCourtDossierMarkdown(sampleAnalysisWithForensic, "ČVS: PP-200/2026");
+    expect(markdown).toContain("## 4. FORENZNÁ ANALÝZA A TRI HLAVNÉ VYŠETROVACIE OTÁZKY");
+    expect(markdown).toContain("Hermes s.r.o.");
+    expect(markdown).toContain("company:hermes-s-r-o");
+    expect(markdown).toContain("Chýba kúpna zmluva");
+    expect(markdown).toContain("Identifikované transakčné a tokové väzby");
+    expect(markdown).toContain("24 000 EUR");
   });
 });

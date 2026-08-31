@@ -1,6 +1,6 @@
 import { ALLOWED_LINEAR_PROJECT_ID } from "./sourceOfTruth";
 
-export const FORENSIC_PROMPT_VERSION = "1.0.0";
+export const FORENSIC_PROMPT_VERSION = "2.0.0";
 export const FORENSIC_MODEL_DEFAULT = "mistral-large-latest";
 
 export type ForensicEvidenceType =
@@ -26,20 +26,118 @@ export interface ForensicEvidence {
   source_group_id?: string | null;
 }
 
+export type ForensicEntityKind = "person" | "company" | "other";
+
+export type ForensicRole =
+  | "orderer"
+  | "buyer"
+  | "buyer_entity"
+  | "payer"
+  | "invoice_payer"
+  | "cash_payer"
+  | "account_holder"
+  | "funding_source"
+  | "intermediary"
+  | "physical_receiver"
+  | "alleged_next_recipient"
+  | "transporter"
+  | "storage_holder"
+  | "seller"
+  | "transferor"
+  | "final_holder"
+  | "designer"
+  | "director"
+  | "coordinator"
+  | "unknown";
+
+export const COMPANY_INDICATORS = [
+  "s.r.o.",
+  "s. r. o.",
+  "spol. s r.o.",
+  "a.s.",
+  "a. s.",
+  "ltd",
+  "inc",
+  "corp",
+  "gmbh",
+  "d.o.o.",
+  "enterprise",
+  "factory",
+  "tatragen",
+  "petris",
+  "tavira",
+  "eb-eu",
+  "bark factory",
+  "magika",
+  "remeta",
+] as const;
+
+export function inferEntityKind(
+  role?: string | null,
+  name?: string | null,
+  explicitKind?: ForensicEntityKind | string | null
+): ForensicEntityKind {
+  if (role === "buyer_entity") return "company";
+  if (explicitKind === "company" || explicitKind === "person" || explicitKind === "other") {
+    return explicitKind;
+  }
+  const n = (name || "").toLowerCase();
+  for (const ind of COMPANY_INDICATORS) {
+    if (n.includes(ind)) return "company";
+  }
+  if (role === "physical_receiver" || role === "cash_payer") {
+    return "person";
+  }
+  return "person";
+}
+
+export function entityKey(
+  kind: ForensicEntityKind,
+  name: string,
+  entityId?: string | null
+): string {
+  return normalizeEntityId(kind, name, entityId);
+}
+
+export function makeEntityId(kind: ForensicEntityKind, name: string): string {
+  const slug = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `${kind}:${slug || "unknown"}`;
+}
+
+export function normalizeEntityId(
+  kind: ForensicEntityKind,
+  name: string,
+  rawEntityId?: string | null
+): string {
+  const trimmed = (name || "").trim();
+  if (!trimmed) {
+    return `${kind}:unknown`;
+  }
+  const slug = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const expectedPrefix = `${kind}:`;
+  if (rawEntityId && rawEntityId.startsWith(expectedPrefix) && rawEntityId.length > expectedPrefix.length) {
+    return rawEntityId;
+  }
+  return `${kind}:${slug || "unknown"}`;
+}
+
 export interface ForensicActor {
+  entity_id: string;
   name: string;
   entity: string | null;
-  role:
-    | "orderer"
-    | "buyer"
-    | "payer"
-    | "physical_receiver"
-    | "transporter"
-    | "storage_holder"
-    | "seller"
-    | "transferor"
-    | "final_holder"
-    | "unknown";
+  entity_kind: ForensicEntityKind;
+  role: ForensicRole;
   found_in_text: boolean;
   inferred: boolean;
   confidence: number;
@@ -48,8 +146,10 @@ export interface ForensicActor {
 }
 
 export interface PlanAuthorCandidate {
+  entity_id: string;
   name: string;
   entity: string | null;
+  entity_kind: ForensicEntityKind;
   role: "designer" | "director" | "coordinator" | "unknown";
   found_in_text: boolean;
   inferred: boolean;
@@ -59,9 +159,11 @@ export interface PlanAuthorCandidate {
 }
 
 export interface ForensicPayer {
+  entity_id: string;
   name: string;
   entity: string | null;
-  role: "invoice_payer" | "funding_source" | "unknown";
+  entity_kind: ForensicEntityKind;
+  role: "invoice_payer" | "cash_payer" | "account_holder" | "funding_source" | "intermediary" | "unknown";
   found_in_text: boolean;
   inferred: boolean;
   confidence: number;
@@ -69,8 +171,10 @@ export interface ForensicPayer {
 }
 
 export interface ForensicFundingSource {
+  entity_id: string;
   name: string;
   entity: string | null;
+  entity_kind: ForensicEntityKind;
   origin: string | null;
   distinct_from_invoice_payer: boolean;
   confidence: number;
@@ -78,10 +182,23 @@ export interface ForensicFundingSource {
 }
 
 export interface ForensicEntity {
+  entity_id: string;
   name: string;
-  type: string;
+  type: ForensicEntityKind | string;
   identifiers: string[];
   aliases: string[];
+}
+
+export interface ForensicTransactionEdge {
+  edge_id: string;
+  from_entity_id: string;
+  to_entity_id: string;
+  role: ForensicRole;
+  date: string | null;
+  amount: string | null;
+  currency: string | null;
+  instrument: "invoice" | "cash" | "account" | "unknown" | null;
+  evidence: ForensicEvidence[];
 }
 
 export interface ForensicTransaction {
@@ -113,12 +230,18 @@ export interface ForensicDocumentAnalysis {
   questions: {
     weapons_flow: {
       answer: string | null;
+      confirmed_answer: string | null;
+      best_supported_candidates: ForensicActor[];
+      missing_confirmation: string[];
       status: ForensicQuestionStatus;
       actors: ForensicActor[];
       missing_evidence: string[];
     };
     plan_author: {
       answer: string | null;
+      confirmed_answer: string | null;
+      best_supported_candidates: PlanAuthorCandidate[];
+      missing_confirmation: string[];
       status: ForensicQuestionStatus;
       candidates: PlanAuthorCandidate[];
       confidence: number;
@@ -128,6 +251,9 @@ export interface ForensicDocumentAnalysis {
     };
     financing: {
       answer: string | null;
+      confirmed_answer: string | null;
+      best_supported_candidates: Array<ForensicPayer | (ForensicFundingSource & { role?: string })>;
+      missing_confirmation: string[];
       status: ForensicQuestionStatus;
       payers: ForensicPayer[];
       funding_sources: ForensicFundingSource[];
@@ -138,6 +264,7 @@ export interface ForensicDocumentAnalysis {
   };
   entities: ForensicEntity[];
   transactions: ForensicTransaction[];
+  transaction_edges: ForensicTransactionEdge[];
   missing_evidence: string[];
   contradicting_evidence: ForensicEvidence[];
   contradictions: ForensicContradiction[];
@@ -200,12 +327,18 @@ export function emptyForensicDocumentAnalysis(
     questions: {
       weapons_flow: {
         answer: null,
+        confirmed_answer: null,
+        best_supported_candidates: [],
+        missing_confirmation: [],
         status: "insufficient_evidence",
         actors: [],
         missing_evidence: [],
       },
       plan_author: {
         answer: null,
+        confirmed_answer: null,
+        best_supported_candidates: [],
+        missing_confirmation: [],
         status: "insufficient_evidence",
         candidates: [],
         confidence: 0,
@@ -215,6 +348,9 @@ export function emptyForensicDocumentAnalysis(
       },
       financing: {
         answer: null,
+        confirmed_answer: null,
+        best_supported_candidates: [],
+        missing_confirmation: [],
         status: "insufficient_evidence",
         payers: [],
         funding_sources: [],
@@ -225,6 +361,7 @@ export function emptyForensicDocumentAnalysis(
     },
     entities: [],
     transactions: [],
+    transaction_edges: [],
     missing_evidence: [],
     contradicting_evidence: [],
     contradictions: [],

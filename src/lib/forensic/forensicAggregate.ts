@@ -9,7 +9,10 @@ import {
   type ForensicDocumentRecord,
   type ForensicEntity,
   type ForensicEvidence,
+  type ForensicFundingSource,
+  type ForensicPayer,
   type ForensicTransaction,
+  type ForensicTransactionEdge,
   type PlanAuthorCandidate,
 } from "./types";
 
@@ -87,10 +90,7 @@ export function mergeAnalyses(
   merged.questions.weapons_flow.missing_evidence = unique(
     analyses.flatMap((a) => a.questions.weapons_flow.missing_evidence)
   );
-  merged.questions.weapons_flow.answer = pickAnswer(
-    analyses.map((a) => a.questions.weapons_flow.answer),
-    merged.questions.weapons_flow.actors.flatMap((a) => a.evidence)
-  );
+  finalizeWeaponsQuestion(merged, analyses);
 
   merged.questions.plan_author.candidates = mergeCandidates(
     analyses.flatMap((a) => a.questions.plan_author.candidates)
@@ -107,10 +107,7 @@ export function mergeAnalyses(
   merged.questions.plan_author.confidence = maxIndependentConfidence(
     merged.questions.plan_author.evidence
   );
-  merged.questions.plan_author.answer = pickAnswer(
-    analyses.map((a) => a.questions.plan_author.answer),
-    merged.questions.plan_author.evidence
-  );
+  finalizePlanQuestion(merged, analyses);
 
   merged.questions.financing.payers = mergePayers(
     analyses.flatMap((a) => a.questions.financing.payers)
@@ -127,19 +124,38 @@ export function mergeAnalyses(
   merged.questions.financing.confidence = maxIndependentConfidence(
     merged.questions.financing.evidence
   );
-  merged.questions.financing.answer = pickAnswer(
-    analyses.map((a) => a.questions.financing.answer),
-    merged.questions.financing.evidence
+  finalizeFinancingQuestion(merged, analyses);
+
+  const knownEntityIds = new Set<string>([
+    ...merged.entities.map((e) => e.entity_id),
+    ...merged.questions.weapons_flow.actors.map((a) => a.entity_id),
+    ...merged.questions.plan_author.candidates.map((c) => c.entity_id),
+    ...merged.questions.financing.payers.map((p) => p.entity_id),
+    ...merged.questions.financing.funding_sources.map((s) => s.entity_id),
+  ]);
+  merged.transaction_edges = mergeTransactionEdges(
+    analyses.flatMap((a) => a.transaction_edges ?? []),
+    knownEntityIds
   );
 
   addCrossDocumentContradictions(merged, analyses);
   return merged;
 }
 
+import {
+  inferEntityKind,
+  normalizeEntityId,
+} from "./types";
+
 function mergeActors(actors: ForensicActor[]): ForensicActor[] {
   const map = new Map<string, ForensicActor>();
   for (const actor of actors) {
-    const key = `${normName(actor.name)}|${actor.role}`;
+    if (!actor.name || !actor.name.trim()) continue;
+    const kind = inferEntityKind(actor.role, actor.name, actor.entity_kind);
+    const entity_id = normalizeEntityId(kind, actor.name, actor.entity_id);
+    actor.entity_id = entity_id;
+    actor.entity_kind = kind;
+    const key = `${entity_id}|${actor.role}`;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, {
@@ -166,7 +182,12 @@ function mergeActors(actors: ForensicActor[]): ForensicActor[] {
 function mergeCandidates(candidates: PlanAuthorCandidate[]): PlanAuthorCandidate[] {
   const map = new Map<string, PlanAuthorCandidate>();
   for (const c of candidates) {
-    const key = `${normName(c.name)}|${c.role}`;
+    if (!c.name || !c.name.trim()) continue;
+    const kind = inferEntityKind(c.role, c.name, c.entity_kind);
+    const entity_id = normalizeEntityId(kind, c.name, c.entity_id);
+    c.entity_id = entity_id;
+    c.entity_kind = kind;
+    const key = `${entity_id}|${c.role}`;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, {
@@ -189,10 +210,15 @@ function mergeCandidates(candidates: PlanAuthorCandidate[]): PlanAuthorCandidate
 
 function mergePayers(
   payers: ForensicDocumentAnalysis["questions"]["financing"]["payers"]
-) {
-  const map = new Map<string, (typeof payers)[number]>();
+): ForensicPayer[] {
+  const map = new Map<string, ForensicPayer>();
   for (const p of payers) {
-    const key = `${normName(p.name)}|${p.role}`;
+    if (!p.name || !p.name.trim()) continue;
+    const kind = inferEntityKind(p.role, p.name, p.entity_kind);
+    const entity_id = normalizeEntityId(kind, p.name, p.entity_id);
+    p.entity_id = entity_id;
+    p.entity_kind = kind;
+    const key = `${entity_id}|${p.role}`;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, {
@@ -210,10 +236,15 @@ function mergePayers(
 
 function mergeFundingSources(
   sources: ForensicDocumentAnalysis["questions"]["financing"]["funding_sources"]
-) {
-  const map = new Map<string, (typeof sources)[number]>();
+): ForensicFundingSource[] {
+  const map = new Map<string, ForensicFundingSource>();
   for (const s of sources) {
-    const key = normName(s.name);
+    if (!s.name || !s.name.trim()) continue;
+    const kind = inferEntityKind("funding_source", s.name, s.entity_kind);
+    const entity_id = normalizeEntityId(kind, s.name, s.entity_id);
+    s.entity_id = entity_id;
+    s.entity_kind = kind;
+    const key = `${entity_id}|funding_source`;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, {
@@ -233,10 +264,14 @@ function mergeFundingSources(
 function mergeEntities(entities: ForensicEntity[]): ForensicEntity[] {
   const map = new Map<string, ForensicEntity>();
   for (const e of entities) {
-    const key = normName(e.name);
-    const existing = map.get(key);
+    if (!e.name || !e.name.trim()) continue;
+    const kind = inferEntityKind(undefined, e.name, e.type);
+    const entity_id = normalizeEntityId(kind, e.name, e.entity_id);
+    e.entity_id = entity_id;
+    e.type = kind;
+    const existing = map.get(entity_id);
     if (!existing) {
-      map.set(key, {
+      map.set(entity_id, {
         ...e,
         identifiers: [...e.identifiers],
         aliases: [...e.aliases],
@@ -247,6 +282,127 @@ function mergeEntities(entities: ForensicEntity[]): ForensicEntity[] {
     existing.aliases = unique([...existing.aliases, ...e.aliases]);
   }
   return [...map.values()];
+}
+
+function mergeTransactionEdges(
+  edges: ForensicTransactionEdge[],
+  knownEntities: Set<string>
+): ForensicTransactionEdge[] {
+  const map = new Map<string, ForensicTransactionEdge>();
+  for (const edge of edges) {
+    const validEvidence = (edge.evidence || []).filter((e) => e.quote && e.quote.trim().length > 0);
+    if (validEvidence.length === 0) continue;
+    if (!edge.from_entity_id || !edge.to_entity_id) continue;
+    if (edge.from_entity_id === edge.to_entity_id) continue; // discard self-edge
+    if (!knownEntities.has(edge.from_entity_id) || !knownEntities.has(edge.to_entity_id)) {
+      continue;
+    }
+    const key = `${edge.from_entity_id}->${edge.to_entity_id}:${edge.role}:${edge.date || "nodate"}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { ...edge, edge_id: key, evidence: dedupeEvidence(validEvidence) });
+      continue;
+    }
+    existing.evidence = dedupeEvidence([...existing.evidence, ...validEvidence]);
+  }
+  return [...map.values()];
+}
+
+function finalizeWeaponsQuestion(
+  merged: ForensicDocumentAnalysis,
+  analyses: ForensicDocumentAnalysis[] = []
+) {
+  const q = merged.questions.weapons_flow;
+  const evidence = q.actors.flatMap((a) => a.evidence);
+  const candidates = [
+    ...analyses.map((a) => a.questions.weapons_flow.confirmed_answer ?? a.questions.weapons_flow.answer),
+    q.confirmed_answer,
+    q.answer,
+  ];
+  const confirmed = pickConfirmedAnswer(candidates, evidence);
+  q.confirmed_answer = confirmed;
+  q.answer = confirmed;
+  q.best_supported_candidates = [...q.actors].sort(
+    (a, b) => b.confidence - a.confidence
+  );
+  q.missing_confirmation = confirmed
+    ? []
+    : unique([
+        ...(q.missing_evidence || []),
+        "Chýba priamy listinný dôkaz alebo nezávislé potvrdenie toku zbraní z aspoň dvoch rôznych source_group.",
+      ]);
+  q.status = confirmed ? "sufficient" : "insufficient_evidence";
+}
+
+function finalizePlanQuestion(
+  merged: ForensicDocumentAnalysis,
+  analyses: ForensicDocumentAnalysis[] = []
+) {
+  const q = merged.questions.plan_author;
+  const evidence = [
+    ...q.evidence,
+    ...q.candidates.flatMap((c) => c.evidence),
+  ];
+  const candidates = [
+    ...analyses.map((a) => a.questions.plan_author.confirmed_answer ?? a.questions.plan_author.answer),
+    q.confirmed_answer,
+    q.answer,
+  ];
+  const confirmed = pickConfirmedAnswer(candidates, evidence);
+  q.confirmed_answer = confirmed;
+  q.answer = confirmed;
+  q.best_supported_candidates = [...q.candidates].sort(
+    (a, b) => b.confidence - a.confidence
+  );
+  q.missing_confirmation = confirmed
+    ? []
+    : unique([
+        ...(q.missing_evidence || []),
+        "Chýba priamy listinný dôkaz alebo nezávislé potvrdenie autora/koordinátora plánu.",
+      ]);
+  q.status = confirmed ? "sufficient" : "insufficient_evidence";
+}
+
+function finalizeFinancingQuestion(
+  merged: ForensicDocumentAnalysis,
+  analyses: ForensicDocumentAnalysis[] = []
+) {
+  const q = merged.questions.financing;
+  const evidence = [
+    ...q.evidence,
+    ...q.payers.flatMap((p) => p.evidence),
+    ...q.funding_sources.flatMap((s) => s.evidence),
+  ];
+  const candidates = [
+    ...analyses.map((a) => a.questions.financing.confirmed_answer ?? a.questions.financing.answer),
+    q.confirmed_answer,
+    q.answer,
+  ];
+  const confirmed = pickConfirmedAnswer(candidates, evidence);
+  q.confirmed_answer = confirmed;
+  q.answer = confirmed;
+  q.best_supported_candidates = [
+    ...q.payers,
+    ...q.funding_sources.map((s) => ({
+      entity_id: s.entity_id,
+      name: s.name,
+      entity: s.entity,
+      entity_kind: s.entity_kind,
+      role: "funding_source" as const,
+      found_in_text: true,
+      inferred: false,
+      confidence: s.confidence,
+      evidence: s.evidence,
+    })),
+  ].sort((a, b) => b.confidence - a.confidence);
+
+  q.missing_confirmation = confirmed
+    ? []
+    : unique([
+        ...(q.missing_evidence || []),
+        "Chýba priamy listinný dôkaz alebo nezávislé potvrdenie funding_source oddelene od invoice_payer.",
+      ]);
+  q.status = confirmed ? "sufficient" : "insufficient_evidence";
 }
 
 function mergeTransactions(items: ForensicTransaction[]): ForensicTransaction[] {
@@ -402,14 +558,47 @@ function dedupeEvidence(items: ForensicEvidence[]): ForensicEvidence[] {
   return out;
 }
 
-function pickAnswer(
+export function canConfirmAnswer(evidence: ForensicEvidence[]): boolean {
+  const independent = independentEvidence(evidence);
+  if (independent.length === 0) return false;
+
+  // Has direct_evidence?
+  const hasDirect = independent.some((ev) => ev.evidence_type === "direct_evidence");
+  if (hasDirect) return true;
+
+  // Has corroborated / multiple independent testimonies from at least 2 distinct source_group_id / origin?
+  const validEv = independent.filter(
+    (ev) =>
+      ev.evidence_type === "corroborated" ||
+      ev.evidence_type === "testimony" ||
+      ev.evidence_type === "direct_evidence"
+  );
+  const distinctGroups = new Set(
+    validEv
+      .map((ev) => ev.source_group_id || ev.linear_issue_id || ev.document_id)
+      .filter(Boolean)
+  );
+  if (distinctGroups.size >= 2) return true;
+
+  // Single testimony, inference, hypothesis CANNOT confirm
+  return false;
+}
+
+export function pickConfirmedAnswer(
   answers: Array<string | null>,
   evidence: ForensicEvidence[]
 ): string | null {
   const grounded = answers.filter((a): a is string => !!a && a.trim().length > 0);
   if (grounded.length === 0) return null;
-  if (independentEvidence(evidence).length === 0) return null;
+  if (!canConfirmAnswer(evidence)) return null;
   return grounded[0];
+}
+
+export function pickAnswer(
+  answers: Array<string | null>,
+  evidence: ForensicEvidence[]
+): string | null {
+  return pickConfirmedAnswer(answers, evidence);
 }
 
 function majorityLanguage(

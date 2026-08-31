@@ -59,6 +59,7 @@ function stampSourceGroup(
   stamp(analysis.questions.financing.evidence);
   for (const p of analysis.questions.financing.payers) stamp(p.evidence);
   for (const s of analysis.questions.financing.funding_sources) stamp(s.evidence);
+  for (const edge of analysis.transaction_edges ?? []) stamp(edge.evidence);
 }
 
 export function forensicDocumentId(name: string, index: number): string {

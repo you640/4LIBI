@@ -178,13 +178,13 @@ function Timeline({
     <div className="relative pl-5">
       <div className="absolute left-[7px] top-2 bottom-2 w-px bg-stone-300" />
 
-      {events.map((event) => {
+      {events.map((event, idx) => {
         const isExpanded = expanded === event.id;
         const isContradiction = event.tags.includes("rozpor");
         const isAlibi = event.tags.includes("alibi");
 
         return (
-          <div key={event.id} className="relative mb-3">
+          <div key={`${event.id}_${idx}`} className="relative mb-3">
             <div
               className={`absolute -left-[13px] top-3 w-3.5 h-3.5 rounded-full border-2 border-bg ${
                 isContradiction

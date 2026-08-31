@@ -163,6 +163,7 @@ export function mergeAnalysisResults(
 
   for (const analysis of analyses) {
     for (const p of analysis.persons) {
+      if (!p.name) continue;
       const normName = normalizePersonName(p.name);
       if (!normName) continue;
 
@@ -194,7 +195,7 @@ export function mergeAnalysisResults(
   const evidenceMap = new Map<string, Evidence>();
   for (const analysis of analyses) {
     for (const ev of analysis.evidence) {
-      const key = `${ev.type}:${ev.content.trim().toLowerCase()}`;
+      const key = `${ev.type}:${(ev.content || "").trim().toLowerCase()}`;
       if (!evidenceMap.has(key)) {
         const id = ev.id || `ev_${evidenceMap.size + 1}`;
         evidenceMap.set(key, { ...ev, id });
@@ -233,6 +234,7 @@ export function mergeAnalysisResults(
 
   for (const analysis of analyses) {
     for (const ev of analysis.timeline) {
+      if (!ev.title) continue;
       const normTitle = ev.title.trim().toLowerCase();
       const normTime = ev.timestamp || "no_time";
       const key = `${normTime}:${normTitle}`;
@@ -246,7 +248,6 @@ export function mergeAnalysisResults(
 
         timelineEvents.push({
           ...ev,
-          id: ev.id || `event_${timelineEvents.length + 1}`,
           persons_involved: resolvedPersons,
           ...(ev.page != null && ev.page > 0 ? { page: ev.page } : {}),
         });
@@ -260,6 +261,15 @@ export function mergeAnalysisResults(
     if (!a.timestamp) return 1;
     if (!b.timestamp) return -1;
     return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+  });
+
+  // Priradenie unikátnych deterministických ID bez kolízií
+  const seenEventIds = new Set<string>();
+  timelineEvents.forEach((ev, idx) => {
+    if (!ev.id || seenEventIds.has(ev.id)) {
+      ev.id = `event_${idx + 1}`;
+    }
+    seenEventIds.add(ev.id);
   });
 
   return {
@@ -276,7 +286,8 @@ export function mergeAnalysisResults(
   };
 }
 
-function normalizePersonName(name: string): string {
+function normalizePersonName(name: string | null | undefined): string {
+  if (!name) return "";
   return name
     .toLowerCase()
     .normalize("NFD")

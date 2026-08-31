@@ -24,12 +24,18 @@ export const CROSS_EXAM_MODES = {
     label: 'Detailná verifikácia alibi',
     description: 'Chronologické a geografické overenie tvrdeného alibi.',
     tone: 'verifikačný'
+  },
+  forensic: {
+    id: 'forensic',
+    label: 'Forenzné preverenie tokov a rolí',
+    description: 'Konfrontácia financovania, identity preberateľov a rozporov v listinách.',
+    tone: 'forenzný'
   }
 };
 
 export function buildLocalCrossExamQuestions(
   contradictions: Contradiction[] = [],
-  mode: 'mild' | 'aggressive' | 'alibi' = 'aggressive'
+  mode: 'mild' | 'aggressive' | 'alibi' | 'forensic' = 'aggressive'
 ): CrossExamQuestion[] {
   const questions: CrossExamQuestion[] = [];
 
@@ -46,6 +52,9 @@ export function buildLocalCrossExamQuestions(
     } else if (mode === 'alibi') {
       qText = `Môžete krok po kroku a minútu po minúte opísať váš pohyb v kritickom čase vzhľadom na zistenú nezrovnalosť: ${explanation}?`;
       rationale = 'Detailná chronologická rekonštrukcia alibi pre odhalenie trhlín v časovej osi.';
+    } else if (mode === 'forensic') {
+      qText = `Na základe akej zmluvy, splnomocnenia alebo pokynu ste konali a ako vysvetlíte forenzný rozpor v materiálnom toku: ${explanation}?`;
+      rationale = 'Preverenie právneho titulu, oddelenia rolí (kupujúci vs. platiteľ vs. preberateľ) a finančných tokov.';
     } else {
       qText = `Mohli by ste bližšie vysvetliť a objasniť okolnosť týkajúcu sa: ${explanation}?`;
       rationale = 'Objasnenie faktického stavu bez nátlaku na svedka.';
