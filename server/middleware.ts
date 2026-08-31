@@ -110,7 +110,14 @@ export async function authMiddleware(
     }
   }
 
-  const cookieToken = getCookie(c, SESSION_COOKIE);
+  const cookieHeader = c.req.header("cookie") || c.req.raw.headers.get("Cookie") || "";
+  const cookieToken =
+    getCookie(c, SESSION_COOKIE) ||
+    cookieHeader
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(`${SESSION_COOKIE}=`))
+      ?.slice(SESSION_COOKIE.length + 1);
   if (cookieToken && secret) {
     try {
       const jwt = await import("jsonwebtoken");
@@ -121,7 +128,7 @@ export async function authMiddleware(
         return await next();
       }
     } catch {
-      /* fall through to API key / 401 */
+      return c.json({ error: "Neplatný session cookie." }, 401);
     }
   }
 
