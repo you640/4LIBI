@@ -28,4 +28,4 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "set -e; if [ -z \"$DATABASE_URL\" ]; then echo '[FATAL] DATABASE_URL is empty in container'; exit 1; fi; echo \"[boot] PORT=$PORT HOST=$HOST\"; npx prisma migrate deploy; echo '[boot] migrate_ok'; exec ./node_modules/.bin/tsx server/index.ts"]
+CMD ["sh", "-c", "set -e; if [ -z \"$DATABASE_URL\" ]; then echo '[FATAL] DATABASE_URL is empty in container'; exit 1; fi; echo \"[boot] PORT=$PORT HOST=$HOST\"; if ! npx prisma migrate deploy; then echo '[boot] migrate_recover P3009'; npx prisma migrate resolve --rolled-back 20260831_external_connections; npx prisma migrate deploy; fi; echo '[boot] migrate_ok'; exec ./node_modules/.bin/tsx server/index.ts"]
