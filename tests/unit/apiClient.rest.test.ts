@@ -90,6 +90,7 @@ describe("api client rest", () => {
     expect(updated.name).toBe("Nový názov");
     expect(fetch).toHaveBeenCalledWith("/api/analyses/a1", {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "Nový názov" }),
     });
@@ -98,7 +99,10 @@ describe("api client rest", () => {
   it("deleteAnalysis hits DELETE endpoint", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }));
     await deleteAnalysis("x");
-    expect(fetch).toHaveBeenCalledWith("/api/analyses/x", { method: "DELETE" });
+    expect(fetch).toHaveBeenCalledWith("/api/analyses/x", {
+      method: "DELETE",
+      credentials: "include",
+    });
   });
 
   it("deleteAllAnalyses clears local IndexedDB and remote", async () => {
@@ -112,7 +116,10 @@ describe("api client rest", () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 200 }));
     await deleteAllAnalyses();
     expect(await storage.getAllAnalyses()).toEqual([]);
-    expect(fetch).toHaveBeenCalledWith("/api/analyses", { method: "DELETE" });
+    expect(fetch).toHaveBeenCalledWith("/api/analyses", {
+      method: "DELETE",
+      credentials: "include",
+    });
   });
 
   it("deleteLocalAnalysis removes cache entry", async () => {

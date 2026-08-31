@@ -37,6 +37,21 @@ export function ProfilePage() {
           </p>
         </div>
 
+        <div className="m3-card-outlined p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-surface-on">Prepojenia účtov (Connect)</h3>
+          <p className="text-xs text-outline leading-relaxed">
+            Spravujte svoje prepojenia s Linear Workspace a GitHub repozitármi pre priame overovanie dôkazov.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/connections")}
+            className="m3-btn-filled"
+            data-testid="profile-connections-link"
+          >
+            Spravovať prepojenia (Linear / GitHub)
+          </button>
+        </div>
+
         <div className="m3-card-outlined p-5">
           <h3 className="text-sm font-semibold text-surface-on mb-2">Audit záznamy</h3>
           <AuditLogViewer limit={30} />

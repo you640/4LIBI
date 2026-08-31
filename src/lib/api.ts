@@ -1,5 +1,5 @@
 import type { Analysis } from "../types";
-import { apiPath } from "./apiBase";
+import { apiFetch } from "./apiFetch";
 import { storage, type StoredAnalysis } from "./db";
 
 export type AnalysisSummary = {
@@ -97,8 +97,8 @@ async function waitForAnalysis(
 
   while (Date.now() < deadline) {
     try {
-      const progRes = await fetch(
-        apiPath(`/api/analyses/${encodeURIComponent(id)}/progress`)
+      const progRes = await apiFetch(
+        `/api/analyses/${encodeURIComponent(id)}/progress`
       );
       if (progRes.ok) {
         const prog = (await progRes.json()) as {
@@ -128,7 +128,7 @@ async function waitForAnalysis(
       /* progress endpoint optional */
     }
 
-    const res = await fetch(apiPath(`/api/analyses/${encodeURIComponent(id)}`));
+    const res = await apiFetch(`/api/analyses/${encodeURIComponent(id)}`);
     if (!res.ok) {
       throw new Error(await readApiError(res));
     }
@@ -176,7 +176,7 @@ export async function analyzeViaApi(
       form.append("files", file);
     }
 
-    res = await fetch(apiPath("/api/analyze"), { method: "POST", body: form });
+    res = await apiFetch("/api/analyze", { method: "POST", body: form });
   } catch (err) {
     console.warn("[analyzeViaApi] Backend fetch zlyhal:", err);
     return await fallbackClientAnalysis(files);
@@ -225,7 +225,7 @@ export type LinearStatusResponse = {
 };
 
 export async function getLinearStatus(): Promise<LinearStatusResponse> {
-  const res = await fetch(apiPath("/api/linear/status"));
+  const res = await apiFetch("/api/linear/status");
   if (!res.ok) {
     throw new Error(await readApiError(res));
   }
@@ -241,7 +241,7 @@ export async function analyzeLinearViaApi(
   });
   let res: Response;
   try {
-    res = await fetch(apiPath("/api/analyses/linear"), { method: "POST" });
+    res = await apiFetch("/api/analyses/linear", { method: "POST" });
   } catch (err) {
     console.warn("[analyzeLinearViaApi] Backend fetch zlyhal:", err);
     throw new Error(
@@ -273,7 +273,7 @@ export async function analyzeLinearViaApi(
 
 export async function listAnalyses(): Promise<AnalysisSummary[]> {
   try {
-    const res = await fetch(apiPath("/api/analyses"));
+    const res = await apiFetch("/api/analyses");
     if (!res.ok) {
       throw new Error(await readApiError(res));
     }
@@ -311,7 +311,7 @@ export async function getAnalysis(id: string): Promise<AnalysisRecord> {
   }
 
   try {
-    const res = await fetch(apiPath(`/api/analyses/${encodeURIComponent(id)}`));
+    const res = await apiFetch(`/api/analyses/${encodeURIComponent(id)}`);
     if (!res.ok) {
       throw new Error(await readApiError(res));
     }
@@ -360,7 +360,7 @@ export async function renameAnalysis(id: string, name: string): Promise<Analysis
   }
 
   try {
-    const res = await fetch(apiPath(`/api/analyses/${encodeURIComponent(id)}`), {
+    const res = await apiFetch(`/api/analyses/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: trimmed }),
@@ -385,7 +385,7 @@ export async function renameAnalysis(id: string, name: string): Promise<Analysis
 export async function deleteAnalysis(id: string): Promise<void> {
   await deleteLocalAnalysis(id);
   try {
-    const res = await fetch(apiPath(`/api/analyses/${encodeURIComponent(id)}`), {
+    const res = await apiFetch(`/api/analyses/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
     if (!res.ok && res.status !== 404) {
@@ -399,7 +399,7 @@ export async function deleteAnalysis(id: string): Promise<void> {
 export async function deleteAllAnalyses(): Promise<void> {
   await clearAllLocalAnalyses();
   try {
-    const res = await fetch(apiPath("/api/analyses"), {
+    const res = await apiFetch("/api/analyses", {
       method: "DELETE",
     });
     if (!res.ok && res.status !== 404) {

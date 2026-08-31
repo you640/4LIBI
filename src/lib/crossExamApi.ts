@@ -3,7 +3,7 @@ import {
   buildLocalCrossExamQuestions,
   generateCrossExamWithMistral,
 } from "./crossExamination";
-import { apiPath } from "./apiBase";
+import { apiFetch } from "./apiFetch";
 import { logAction } from "./auditLog";
 
 export type CrossExamSource = "mistral" | "local";
@@ -34,7 +34,7 @@ export async function requestCrossExam(options: {
 
   if (typeof fetch === "function") {
     try {
-      const res = await fetch(apiPath("/api/cross-exam"), {
+      const res = await apiFetch("/api/cross-exam", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

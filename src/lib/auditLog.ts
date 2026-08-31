@@ -1,5 +1,5 @@
 // Forenzný Audit Log (PostgreSQL + Local Fallback)
-import { apiPath } from "./apiBase";
+import { apiFetch } from "./apiFetch";
 // Zaznamenáva kritické akcie: case create, alibi check, PDF export, HITL zmeny.
 
 export interface AuditEntry {
@@ -65,7 +65,7 @@ export function logAction(
 
   // Asynchrónna perzistencia do PostgreSQL na serveri (iba v browseri)
   if (typeof window !== "undefined" && typeof fetch === "function") {
-    fetch(apiPath("/api/audit-logs"), {
+    apiFetch("/api/audit-logs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -105,7 +105,7 @@ export function getAuditLog(): AuditEntry[] {
 export async function fetchServerAuditLogs(limit = 100): Promise<AuditEntry[]> {
   if (typeof window === "undefined" || typeof fetch === "undefined") return getAuditLog();
   try {
-    const res = await fetch(apiPath(`/api/audit-logs?limit=${limit}`));
+    const res = await apiFetch(`/api/audit-logs?limit=${limit}`);
     if (!res.ok) return getAuditLog();
     const data = (await res.json()) as { logs?: ServerAuditLogRecord[] };
     if (data && Array.isArray(data.logs)) {

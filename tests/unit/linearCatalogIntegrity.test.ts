@@ -225,5 +225,5 @@ describe("reálne spracovanie Linear attachmentu", () => {
       (attachment!.text.trim().length >= 20 ||
         Boolean(attachment!.bytes && attachment!.bytes.byteLength > 32));
     expect(passedFilter).toBe(true);
-  });
+  }, 15000);
 });

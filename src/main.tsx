@@ -4,6 +4,7 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initSentry } from "./lib/sentry";
 import { storage } from "./lib/db";
+import { ensureSession } from "./lib/apiFetch";
 import { registerSW } from "virtual:pwa-register";
 import "./index.css";
 
@@ -21,7 +22,7 @@ const updateSW = registerSW({
   },
 });
 
-void storage.migrateFromLocalStorage().finally(() => {
+void Promise.all([storage.migrateFromLocalStorage(), ensureSession()]).finally(() => {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <ErrorBoundary>

@@ -103,6 +103,13 @@ optional("VITE_STRIPE_PUBLIC_KEY","Stripe public key pre platby");
 
 console.log(`\n${B}[ VOLITEĽNÉ — INTEGRÁCIE ]${X}`);
 optional("LINEAR_API_KEY",        "Linear API — bez kľúča sa forenzné 3 otázky zastavia (fail-closed)");
+optional("APP_BASE_URL",          "Verejná URL frontendu pre OAuth callback");
+optional("SESSION_SECRET",        "Podpis OAuth state (inak JWT_SECRET)");
+optional("TOKEN_ENCRYPTION_KEY",  "AES-256-GCM kľúč pre OAuth tokeny (inak JWT_SECRET)");
+optional("LINEAR_CLIENT_ID",      "Linear OAuth app — multi-user Connect");
+optional("LINEAR_CLIENT_SECRET",  "Linear OAuth app secret");
+optional("GITHUB_CLIENT_ID",      "GitHub OAuth app — multi-user Connect");
+optional("GITHUB_CLIENT_SECRET",  "GitHub OAuth app secret");
 optional("GOOGLE_CLIENT_ID",      "Google OAuth Client ID");
 optional("GOOGLE_CLIENT_SECRET",  "Google OAuth Client Secret");
 optional("MISTRAL_BACKUP_API_KEY","Záložný Mistral kľúč");

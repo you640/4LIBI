@@ -12,6 +12,7 @@ export default tseslint.config(
       "tsconfig.tsbuildinfo",
       "nuxt-4/",
       "scripts/",
+      "audit*.{js,mjs,cjs}",
     ],
   },
   js.configs.recommended,

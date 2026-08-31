@@ -30,6 +30,8 @@ vi.mock("../server/ocrService", () => ({
 const analyses = new Map<string, Record<string, unknown>>();
 const hitl = new Map<string, Record<string, unknown>>();
 const auditLogs: Record<string, unknown>[] = [];
+const externalConnections = new Map<string, Record<string, unknown>>();
+const evidenceSources = new Map<string, Record<string, unknown>>();
 
 vi.mock("../server/prisma", () => {
   const prisma = {
@@ -78,6 +80,69 @@ vi.mock("../server/prisma", () => {
           }
         }
         return { count };
+      }),
+    },
+    externalConnection: {
+      findMany: vi.fn(async (args?: { where?: { ownerId?: string } }) => {
+        const rows = [...externalConnections.values()].filter(
+          (c) => !args?.where?.ownerId || c.ownerId === args.where.ownerId
+        );
+        return rows.map((c) => ({
+          ...c,
+          evidenceSources: [...evidenceSources.values()].filter((s) => s.connectionId === c.id),
+        }));
+      }),
+      findUnique: vi.fn(async (args?: { where?: { ownerId_provider?: { ownerId: string; provider: string }; id?: string } }) => {
+        if (args?.where?.ownerId_provider) {
+          const key = `${args.where.ownerId_provider.ownerId}:${args.where.ownerId_provider.provider}`;
+          return externalConnections.get(key) || null;
+        }
+        if (args?.where?.id) {
+          return [...externalConnections.values()].find((c) => c.id === args.where.id) || null;
+        }
+        return null;
+      }),
+      upsert: vi.fn(async ({ where, create, update }: { where: { ownerId_provider: { ownerId: string; provider: string } }; create: Record<string, unknown>; update: Record<string, unknown> }) => {
+        const key = `${where.ownerId_provider.ownerId}:${where.ownerId_provider.provider}`;
+        const existing = externalConnections.get(key);
+        const row = existing
+          ? { ...existing, ...update, updatedAt: new Date() }
+          : { id: `conn_${Date.now()}_${Math.random()}`, ...where.ownerId_provider, ...create, createdAt: new Date(), updatedAt: new Date() };
+        externalConnections.set(key, row);
+        return row;
+      }),
+      delete: vi.fn(async ({ where }: { where: { id: string } }) => {
+        for (const [key, val] of externalConnections.entries()) {
+          if (val.id === where.id) {
+            externalConnections.delete(key);
+            return val;
+          }
+        }
+        return null;
+      }),
+    },
+    evidenceSource: {
+      findMany: vi.fn(async (args?: { where?: { ownerId?: string } }) =>
+        [...evidenceSources.values()].filter(
+          (s) => !args?.where?.ownerId || s.ownerId === args.where.ownerId
+        )
+      ),
+      findFirst: vi.fn(async (args?: { where?: { id?: string; ownerId?: string } }) => {
+        const row = args?.where?.id ? evidenceSources.get(args.where.id) : undefined;
+        if (!row) return null;
+        if (args?.where?.ownerId && row.ownerId !== args.where.ownerId) return null;
+        return row;
+      }),
+      create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        const id = `src_${Date.now()}_${Math.random()}`;
+        const row = { id, createdAt: new Date(), updatedAt: new Date(), ...data };
+        evidenceSources.set(id, row);
+        return row;
+      }),
+      delete: vi.fn(async ({ where }: { where: { id: string } }) => {
+        const row = evidenceSources.get(where.id);
+        evidenceSources.delete(where.id);
+        return row;
       }),
     },
     file: {
@@ -143,5 +208,7 @@ vi.mock("../server/prisma", () => {
 export function resetApiMocks() {
   analyses.clear();
   hitl.clear();
+  externalConnections.clear();
+  evidenceSources.clear();
   auditLogs.length = 0;
 }

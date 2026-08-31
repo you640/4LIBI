@@ -1,4 +1,4 @@
-import { apiPath } from "./apiBase";
+import { apiFetch } from "./apiFetch";
 
 export type HitlStatus = "open" | "confirmed" | "dismissed";
 
@@ -39,7 +39,7 @@ export function setHitlStatus(
 
   // Asynchrónna synchronizácia do PostgreSQL (iba v browser prostredí)
   if (typeof window !== "undefined" && analysisId) {
-    fetch(apiPath(`/api/analyses/${encodeURIComponent(analysisId)}/hitl`), {
+    apiFetch(`/api/analyses/${encodeURIComponent(analysisId)}/hitl`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ eventId, status }),
@@ -53,7 +53,7 @@ export async function syncHitlFromServer(analysisId: string): Promise<Record<str
   if (typeof window === "undefined" || !analysisId) return {};
 
   try {
-    const res = await fetch(apiPath(`/api/analyses/${encodeURIComponent(analysisId)}/hitl`));
+    const res = await apiFetch(`/api/analyses/${encodeURIComponent(analysisId)}/hitl`);
     if (!res.ok) return {};
     const data = await res.json();
     if (data && data.statuses && typeof data.statuses === "object") {

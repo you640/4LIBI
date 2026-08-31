@@ -1,10 +1,27 @@
 import type { Context } from "hono";
 import crypto from "node:crypto";
+import { getCookie } from "hono/cookie";
+
+export const SESSION_COOKIE = "fd_session";
 
 export type AuthVariables = {
   ownerId: string;
   userEmail: string;
 };
+
+export function getJwtSecret(): string | undefined {
+  const secret = process.env.JWT_SECRET;
+  return secret && secret.length >= 32 ? secret : undefined;
+}
+
+export function isPublicApiPath(pathname: string): boolean {
+  return (
+    pathname === "/api/health" ||
+    pathname === "/api/auth/session" ||
+    pathname === "/api/auth/linear/callback" ||
+    pathname === "/api/auth/github/callback"
+  );
+}
 
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
@@ -57,7 +74,7 @@ export async function authMiddleware(
   next: () => Promise<void>
 ) {
   const pathname = new URL(c.req.url).pathname;
-  if (pathname === "/api/health") {
+  if (isPublicApiPath(pathname)) {
     return await next();
   }
 
@@ -72,10 +89,10 @@ export async function authMiddleware(
 
   const authHeader = c.req.header("Authorization");
   const apiKey = c.req.header("x-api-key");
+  const secret = getJwtSecret();
 
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
-    const secret = process.env.JWT_SECRET;
     if (!secret) {
       return c.json({ error: "JWT_SECRET nie je nastavený." }, 500);
     }
@@ -90,6 +107,21 @@ export async function authMiddleware(
       return await next();
     } catch {
       return c.json({ error: "Neplatný autentifikačný token" }, 401);
+    }
+  }
+
+  const cookieToken = getCookie(c, SESSION_COOKIE);
+  if (cookieToken && secret) {
+    try {
+      const jwt = await import("jsonwebtoken");
+      const decoded = jwt.verify(cookieToken, secret) as { userId: string; email: string };
+      if (decoded?.userId) {
+        c.set("ownerId", decoded.userId);
+        c.set("userEmail", decoded.email || `${decoded.userId}@forenzdetectiv.local`);
+        return await next();
+      }
+    } catch {
+      /* fall through to API key / 401 */
     }
   }
 

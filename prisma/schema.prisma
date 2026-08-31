@@ -8,49 +8,51 @@ datasource db {
 }
 
 model User {
-  id              String            @id @default(cuid())
-  email           String            @unique
-  passwordHash    String?
-  files           File[]
-  analyses        Analysis[]
-  ocrResults      OcrResult[]
-  conversationLogs ConversationLog[]
-  geospatialChecks GeospatialCheck[]
-  auditLogs       AuditLog[]
-  hitlStatuses    HitlStatusRecord[]
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  analyses            Analysis[]
+  auditLogs           AuditLog[]
+  conversationLogs    ConversationLog[]
+  evidenceSources     EvidenceSource[]
+  externalConnections ExternalConnection[]
+  files               File[]
+  geospatialChecks    GeospatialCheck[]
+  hitlStatuses        HitlStatusRecord[]
+  ocrResults          OcrResult[]
 }
 
 model File {
   id          String     @id @default(cuid())
   ownerId     String
-  owner       User       @relation(fields: [ownerId], references: [id])
   name        String
   storagePath String
   contentType String
   size        Int
-  analyses    Analysis[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  owner       User       @relation(fields: [ownerId], references: [id])
+  analyses    Analysis[] @relation("AnalysisToFile")
 
   @@index([ownerId])
   @@map("files")
 }
 
 model Analysis {
-  id           String   @id @default(cuid())
+  id           String             @id @default(cuid())
   ownerId      String
-  owner        User     @relation(fields: [ownerId], references: [id])
   name         String
   data         Json?
-  status       String   @default("queued")
+  status       String             @default("queued")
   errorMessage String?
-  metadata     Json?    // Stores file count, email, queuedAt, etc.
-  files        File[]
+  metadata     Json?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  owner        User               @relation(fields: [ownerId], references: [id])
   hitlStatuses HitlStatusRecord[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  files        File[]             @relation("AnalysisToFile")
 
   @@index([ownerId, status])
   @@index([status, createdAt])
@@ -60,13 +62,13 @@ model Analysis {
 model HitlStatusRecord {
   id         String   @id @default(cuid())
   analysisId String
-  analysis   Analysis @relation(fields: [analysisId], references: [id])
   eventId    String
-  status     String   // "open" | "confirmed" | "dismissed"
+  status     String
   ownerId    String
-  owner      User     @relation(fields: [ownerId], references: [id])
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())
+  analysis   Analysis @relation(fields: [analysisId], references: [id])
+  owner      User     @relation(fields: [ownerId], references: [id])
 
   @@unique([analysisId, eventId])
   @@index([analysisId])
@@ -78,9 +80,9 @@ model AuditLog {
   id        String   @id @default(cuid())
   action    String
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
   details   Json?
   timestamp DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([action, timestamp])
   @@index([userId, timestamp])
@@ -88,9 +90,8 @@ model AuditLog {
 }
 
 model OcrResult {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   ownerId          String
-  owner            User      @relation(fields: [ownerId], references: [id])
   fileName         String
   mimeType         String
   sourceType       String
@@ -98,7 +99,8 @@ model OcrResult {
   processingTimeMs Int
   sha256Hash       String
   caseId           String?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime @default(now())
+  owner            User     @relation(fields: [ownerId], references: [id])
 
   @@index([ownerId, createdAt])
   @@map("ocr_results")
@@ -107,27 +109,68 @@ model OcrResult {
 model ConversationLog {
   id          String   @id @default(cuid())
   ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
   userMessage String
   history     Json?
   createdAt   DateTime @default(now())
+  owner       User     @relation(fields: [ownerId], references: [id])
 
   @@index([ownerId, createdAt])
   @@map("conversation_logs")
 }
 
 model GeospatialCheck {
-  id          String   @id @default(cuid())
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  personName  String?
-  locationA   String?
-  timeA       String?
-  locationB   String?
-  timeB       String?
-  result      Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  ownerId    String
+  personName String?
+  locationA  String?
+  timeA      String?
+  locationB  String?
+  timeB      String?
+  result     Json?
+  createdAt  DateTime @default(now())
+  owner      User     @relation(fields: [ownerId], references: [id])
 
   @@index([ownerId, createdAt])
   @@map("geospatial_checks")
+}
+
+model ExternalConnection {
+  id                    String           @id @default(cuid())
+  ownerId               String
+  provider              String
+  providerUserId        String?
+  providerAccountName   String?
+  encryptedAccessToken  String
+  encryptedRefreshToken String?
+  tokenExpiresAt        DateTime?
+  scopes                String[]
+  status                String           @default("active")
+  metadata              Json?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  evidenceSources       EvidenceSource[]
+  owner                 User             @relation(fields: [ownerId], references: [id])
+
+  @@unique([ownerId, provider])
+  @@index([ownerId, status])
+  @@map("external_connections")
+}
+
+model EvidenceSource {
+  id           String              @id @default(cuid())
+  ownerId      String
+  connectionId String?
+  sourceType   String
+  externalId   String
+  name         String
+  config       Json?
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  connection   ExternalConnection? @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  owner        User                @relation(fields: [ownerId], references: [id])
+
+  @@index([connectionId])
+  @@index([ownerId, sourceType])
+  @@map("evidence_sources")
 }

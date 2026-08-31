@@ -7,6 +7,7 @@ import { LocalAnalysisPage } from "./pages/LocalAnalysisPage";
 import { FilesPage } from "./pages/FilesPage";
 import { CaseLayout } from "./pages/CaseLayout";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { RozporyTab } from "./components/case/RozporyTab";
 import { TimelineTab } from "./components/case/TimelineTab";
 import { GrafTab } from "./components/case/GrafTab";
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="osoby" element={<OsobyTab />} />
               <Route path="audit" element={<AuditTab />} />
             </Route>
+            <Route path="/connections" element={<ConnectionsPage />} />
             <Route path="/profil" element={<ProfilePage />} />
             <Route path="*" element={<Navigate to="/spisy" replace />} />
           </Route>

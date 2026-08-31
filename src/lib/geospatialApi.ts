@@ -1,6 +1,6 @@
 import type { TravelFeasibilityResult } from "../types";
 import { auditAlibiCheck } from "./auditLog";
-import { apiPath } from "./apiBase";
+import { apiFetch } from "./apiFetch";
 import {
   evaluateGeospatialLocal,
   type GeospatialCheckInput,
@@ -12,7 +12,7 @@ export async function checkGeospatialFeasibility(
 ): Promise<TravelFeasibilityResult | null> {
   if (typeof fetch === "function") {
     try {
-      const res = await fetch(apiPath("/api/geospatial/check"), {
+      const res = await apiFetch("/api/geospatial/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

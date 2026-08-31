@@ -23,7 +23,10 @@ import {
   sanitizeName,
   isUploadedFile,
   isAuthBypass,
+  isPublicApiPath,
 } from "./middleware";
+import { connectionsRouter } from "./routes/connections";
+import { sessionRouter } from "./routes/session";
 
 const PORT = Number(process.env.PORT ?? 5176);
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -45,7 +48,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [
   "http://127.0.0.1:5175",
   "http://localhost:3000",
   "https://forenzdetectiv.sk",
-  "https://www.forenzdetectiv.sk"
+  "https://www.forenzdetectiv.sk",
+  "https://forenzdetectiv-web.vercel.app",
 ];
 
 app.use(
@@ -88,9 +92,15 @@ app.get("/api/health", (c) => {
 app.use("/api/*", rateLimitMiddleware(60, 60 * 1000));
 app.use("/api/*", authMiddleware);
 app.use("/api/*", async (c, next) => {
-  await ensureUserIdentity(prisma, c.get("ownerId"), c.get("userEmail"));
+  const pathname = new URL(c.req.url).pathname;
+  if (!isPublicApiPath(pathname)) {
+    await ensureUserIdentity(prisma, c.get("ownerId"), c.get("userEmail"));
+  }
   await next();
 });
+
+app.route("/", sessionRouter);
+app.route("/", connectionsRouter);
 
 app.onError((err, c) => {
   console.error(err);
@@ -301,7 +311,7 @@ app.post("/api/analyses/linear", async (c) => {
             relationships: [],
             timeline: [],
             forensic,
-          },
+          } as unknown as Prisma.InputJsonValue,
         },
       });
       return c.json({
