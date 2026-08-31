@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import crypto from "node:crypto";
+import jwt from "jsonwebtoken";
 import { getCookie } from "hono/cookie";
 
 export const SESSION_COOKIE = "fd_session";
@@ -97,7 +98,6 @@ export async function authMiddleware(
       return c.json({ error: "JWT_SECRET nie je nastavený." }, 500);
     }
     try {
-      const jwt = await import("jsonwebtoken");
       const decoded = jwt.verify(token, secret) as { userId: string; email: string };
       if (!decoded?.userId) {
         return c.json({ error: "Neplatný autentifikačný token" }, 401);
@@ -111,23 +111,38 @@ export async function authMiddleware(
   }
 
   const cookieHeader = c.req.header("cookie") || c.req.raw.headers.get("Cookie") || "";
-  const cookieToken =
+  const rawCookieToken =
     getCookie(c, SESSION_COOKIE) ||
     cookieHeader
       .split(";")
       .map((part) => part.trim())
       .find((part) => part.startsWith(`${SESSION_COOKIE}=`))
       ?.slice(SESSION_COOKIE.length + 1);
+  let cookieToken = rawCookieToken;
+  if (cookieToken) {
+    cookieToken = cookieToken.trim();
+    if (cookieToken.startsWith('"') && cookieToken.endsWith('"')) {
+      cookieToken = cookieToken.slice(1, -1);
+    }
+    try {
+      cookieToken = decodeURIComponent(cookieToken);
+    } catch {
+      /* keep raw token */
+    }
+  }
   if (cookieToken && secret) {
     try {
-      const jwt = await import("jsonwebtoken");
       const decoded = jwt.verify(cookieToken, secret) as { userId: string; email: string };
       if (decoded?.userId) {
         c.set("ownerId", decoded.userId);
         c.set("userEmail", decoded.email || `${decoded.userId}@forenzdetectiv.local`);
         return await next();
       }
-    } catch {
+    } catch (err) {
+      console.warn(
+        "[auth] session cookie rejected:",
+        err instanceof Error ? err.message : "unknown"
+      );
       return c.json({ error: "Neplatný session cookie." }, 401);
     }
   }
