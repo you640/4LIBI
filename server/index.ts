@@ -23,7 +23,6 @@ import {
   sanitizeName,
   isUploadedFile,
   isAuthBypass,
-  isPublicApiPath,
 } from "./middleware";
 import { connectionsRouter } from "./routes/connections";
 import { sessionRouter } from "./routes/session";
@@ -92,9 +91,14 @@ app.get("/api/health", (c) => {
 app.use("/api/*", rateLimitMiddleware(60, 60 * 1000));
 app.use("/api/*", authMiddleware);
 app.use("/api/*", async (c, next) => {
-  const pathname = new URL(c.req.url).pathname;
-  if (!isPublicApiPath(pathname)) {
-    await ensureUserIdentity(prisma, c.get("ownerId"), c.get("userEmail"));
+  const ownerId = c.get("ownerId");
+  const userEmail = c.get("userEmail");
+  if (ownerId) {
+    await ensureUserIdentity(
+      prisma,
+      ownerId,
+      userEmail || `${ownerId}@forenzdetectiv.local`
+    );
   }
   await next();
 });

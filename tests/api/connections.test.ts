@@ -29,6 +29,14 @@ describe("Connections & OAuth API", () => {
     expect(res.status).toBe(401);
   });
 
+  it("vydá session cookie aj keď predchádzajúci request nemal ownerId", async () => {
+    const app = await getApp();
+    const unauth = await app.request("/api/connections");
+    expect(unauth.status).toBe(401);
+    const sessionRes = await app.request("/api/auth/session", { method: "POST" });
+    expect([200, 201]).toContain(sessionRes.status);
+  });
+
   it("vydá session cookie a sprístupní /api/connections", async () => {
     const app = await getApp();
     const sessionRes = await app.request("/api/auth/session", { method: "POST" });
