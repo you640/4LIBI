@@ -16,6 +16,9 @@ export function ev(partial: Partial<ForensicEvidence> & { quote: string }): Fore
     linear_issue_id: partial.linear_issue_id ?? "issue-test",
     linear_document_id: partial.linear_document_id ?? null,
     attachment_id: partial.attachment_id ?? null,
+    ...(partial.source_group_id !== undefined
+      ? { source_group_id: partial.source_group_id }
+      : {}),
   };
 }
 

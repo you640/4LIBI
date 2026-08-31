@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
+import { extractTextFromBytes } from "../extractDocumentText";
+import { extractTextFromPdf } from "../pdfParser";
 import {
   ALLOWED_LINEAR_PROJECT_ID,
   ALLOWED_LINEAR_PROJECT_NAME,
   isFrameworkDocument,
-  isDerivedNavigationTitle,
+  isNonAdmissibleDerived,
 } from "./sourceOfTruth";
 import type {
   LinearCatalog,
@@ -123,6 +125,175 @@ function pickMeta(text: string, keys: string[]): string | null {
   return null;
 }
 
+const SLASH_YEAR_RE = /\b(\d{1,2}\.\d{1,2}\.)(\d{4})\s*\/\s*(\d{2,4})\b/;
+
+function expandYear(baseYear: string, fragment: string): string {
+  if (fragment.length === 4) return fragment;
+  if (fragment.length === 2) return `${baseYear.slice(0, 2)}${fragment}`;
+  return fragment;
+}
+
+/** 12.01.2026/2025 stays a conflict — never collapsed to a single year. */
+export function detectDateConflict(
+  text: string,
+  pickedDate?: string | null,
+  pickedConflict?: string | null
+): { documentDate: string | null; dateConflict: string | null } {
+  if (pickedConflict && pickedConflict.trim()) {
+    const raw = pickedConflict.trim();
+    const slash = raw.match(SLASH_YEAR_RE);
+    if (slash) {
+      const yearA = slash[2];
+      const yearB = expandYear(yearA, slash[3]);
+      return { documentDate: null, dateConflict: `${slash[1]}${yearA}/${yearB}` };
+    }
+    return { documentDate: pickedDate ?? null, dateConflict: raw };
+  }
+
+  const slash = (pickedDate || "").match(SLASH_YEAR_RE) || text.match(SLASH_YEAR_RE);
+  if (slash) {
+    const yearA = slash[2];
+    const yearB = expandYear(yearA, slash[3]);
+    if (yearA !== yearB) {
+      return {
+        documentDate: null,
+        dateConflict: `${slash[1]}${yearA}/${yearB}`,
+      };
+    }
+  }
+
+  const rozporMatch = text.match(/upozornenie\s+na\s+rozpor[^\n.]*[:.]\s*([^\n]+)/i);
+  if (rozporMatch?.[1]) {
+    return {
+      documentDate: pickedDate ?? null,
+      dateConflict: rozporMatch[1].trim(),
+    };
+  }
+
+  const dateMatches = [...text.matchAll(/\b(\d{1,2}\.\d{1,2}\.)(\d{4})\b/g)];
+  const uniqueDates = Array.from(new Set(dateMatches.map((m) => `${m[1]}${m[2]}`)));
+  const uniqueYears = Array.from(new Set(dateMatches.map((m) => m[2])));
+  if (uniqueYears.length > 1 && /rozpor|tituln|hlavičk|hlavick|prevzatie|výsluch|vysluch/i.test(text)) {
+    return {
+      documentDate: null,
+      dateConflict: uniqueDates.slice(0, 2).join(" vs "),
+    };
+  }
+
+  if (pickedDate && !SLASH_YEAR_RE.test(pickedDate)) {
+    return { documentDate: pickedDate, dateConflict: null };
+  }
+  if (uniqueDates.length === 1) return { documentDate: uniqueDates[0], dateConflict: null };
+  return { documentDate: pickedDate ?? null, dateConflict: null };
+}
+
+export function isTranscriptAttachment(
+  title: string,
+  mime?: string | null,
+  filename?: string | null
+): boolean {
+  const blob = `${title} ${filename || ""} ${mime || ""}`.toLowerCase();
+  if (/textov[ýy]\s+prepis|\bprepis\b|transcript|pracovn[ýy]\s+prepis|overen[ýy]\s+prepis/i.test(blob)) {
+    return true;
+  }
+  const name = (filename || title || "").toLowerCase();
+  const mimeL = (mime || "").toLowerCase();
+  if (name.endsWith(".txt") || name.endsWith(".md") || mimeL.includes("text/plain") || mimeL.includes("text/markdown")) {
+    return true;
+  }
+  return false;
+}
+
+export function classifySourceKind(input: {
+  title: string;
+  documentType?: string | null;
+  url?: string | null;
+  isAttachment?: boolean;
+  filename?: string | null;
+  mime?: string | null;
+  body?: string | null;
+}): SourceKind {
+  const title = input.title || "";
+  const filename = input.filename || title;
+  const nameBlob = `${title} ${filename} ${input.mime || ""}`;
+  if (isNonAdmissibleDerived(title, input.documentType, input.url)) {
+    return "derived_index";
+  }
+  if (input.isAttachment) {
+    if (isTranscriptAttachment(title, input.mime, filename)) {
+      if (/ocr|pracovn[ýy]\s+ocr/i.test(nameBlob)) return "working_ocr";
+      return "verified_transcript";
+    }
+    if (/ocr|pracovn[ýy]\s+ocr/i.test(nameBlob)) return "working_ocr";
+    return "original_attachment";
+  }
+  const bodyBlob = `${nameBlob} ${input.body || ""}`;
+  if (isTranscriptAttachment(title, input.mime, filename) || /textov[ýy]\s+prepis|\bprepis\b/i.test(bodyBlob)) {
+    if (/ocr|pracovn[ýy]\s+ocr/i.test(bodyBlob)) return "working_ocr";
+    return "verified_transcript";
+  }
+  if (/ocr|pracovn[ýy]\s+ocr/i.test(bodyBlob)) return "working_ocr";
+  if (/overen|verified transcript/i.test(bodyBlob)) return "verified_transcript";
+  return "working_ocr";
+}
+
+function normalizePersonName(name: string): string {
+  const trimmed = name.trim();
+  if (/^Mareka Plcha$/i.test(trimmed)) return "Marek Plch";
+  if (/^Jána Nováka$/i.test(trimmed)) return "Ján Novák";
+  if (/^Michala Šveca$/i.test(trimmed)) return "Michal Švec";
+  if (/^Petra Kováča$/i.test(trimmed)) return "Peter Kováč";
+  if (/^Tomáša Dvořáka$/i.test(trimmed)) return "Tomáš Dvořák";
+  if (/^Pavla Horvátha$/i.test(trimmed)) return "Pavol Horváth";
+  if (/^Martina Bednára$/i.test(trimmed)) return "Martin Bednár";
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 2) {
+    let [first, last] = parts;
+    if (first.endsWith("a") && !["Andrea", "Eva", "Anna", "Zuzana", "Mária", "Maria", "Elena", "Lucia", "Jana"].includes(first)) {
+      first = first.slice(0, -1);
+    }
+    if (last.endsWith("a") && !["Veselá", "Nová", "Čierna", "Kováčová", "Horváthová"].includes(last)) {
+      last = last.slice(0, -1);
+    }
+    return `${first} ${last}`;
+  }
+  return trimmed;
+}
+
+export function canonicalSourceGroupId(input: {
+  title: string;
+  issueId?: string | null;
+  documentId?: string | null;
+  person?: string | null;
+}): string {
+  const t = input.title.toLowerCase();
+  const dokazMatch = t.match(/(?:dôkaz|dokaz|\b)\s*0?([0-9]{1,2})\b/i);
+  if (dokazMatch?.[1]) {
+    return `evidence-${dokazMatch[1].padStart(2, "0")}`;
+  }
+  if (input.issueId) return input.issueId;
+  if (input.documentId) return input.documentId;
+  const person =
+    input.person ||
+    input.title.match(/[-–—]\s*([A-ZÁÉÍÓÚÝŽŠČŤŇ][a-záéíóúýžščťň]+\s+[A-ZÁÉÍÓÚÝŽŠČŤŇ][a-záéíóúýžščťň]+)/i)?.[1] ||
+    null;
+  if (person) {
+    const normalized = normalizePersonName(person);
+    const slug = normalized.toLowerCase().replace(/[^a-záéíóúýžščťň0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    if (slug.length >= 3) return `person-${slug}`;
+  }
+  return "unknown";
+}
+
+export function sourceGroupId(
+  issueId: string | null,
+  documentId: string | null,
+  title = "",
+  person: string | null = null
+): string {
+  return canonicalSourceGroupId({ title, issueId, documentId, person });
+}
+
 export function parseSourceMetadata(
   text: string,
   labels: string[] = []
@@ -135,8 +306,10 @@ export function parseSourceMetadata(
   if (!personOrEntity) {
     const nameMatch = text.match(/(?:výsluch|výpoveď|vypoved|vysluch)\s+(?:svedka|zadržaného|obvineného|podozrivého|zadrzaneho|obvineneho|podozriveho)?\s*([A-ZÁÉÍÓÚÝŽŠČŤŇ][a-záéíóúýžščťň]+\s+[A-ZÁÉÍÓÚÝŽŠČŤŇ][a-záéíóúýžščťň]+)/i);
     if (nameMatch?.[1]) {
-      personOrEntity = nameMatch[1].trim();
+      personOrEntity = normalizePersonName(nameMatch[1].trim());
     }
+  } else {
+    personOrEntity = normalizePersonName(personOrEntity);
   }
 
   let documentType =
@@ -156,7 +329,7 @@ export function parseSourceMetadata(
     else if (/časová os|casova os/i.test(text)) documentType = "časová os";
   }
 
-  let documentDate = pickMeta(text, [
+  const pickedDate = pickMeta(text, [
     "dátum", "datum", "date", "document date",
     "titulná strana", "titulna strana",
     "prevzatie", "prevzatie osoby",
@@ -165,14 +338,7 @@ export function parseSourceMetadata(
     "dátum a čas", "datum a cas"
   ]);
 
-  if (!documentDate) {
-    const dateMatch = text.match(/\b(\d{1,2}\.\d{1,2}\.\d{4})\b/);
-    if (dateMatch?.[1]) {
-      documentDate = dateMatch[1];
-    }
-  }
-
-  const dateConflict = pickMeta(text, [
+  const pickedConflict = pickMeta(text, [
     "dátumový rozpor",
     "datumovy rozpor",
     "date conflict",
@@ -181,6 +347,12 @@ export function parseSourceMetadata(
     "upozornenie na rozpor v dátume",
     "upozornenie na rozpor v datume"
   ]);
+
+  const { documentDate, dateConflict } = detectDateConflict(
+    text,
+    pickedDate,
+    pickedConflict
+  );
 
   const completeness = pickMeta(text, [
     "úplnosť", "uplnost", "completeness", "kompletnosť",
@@ -220,11 +392,17 @@ export function admissibilityGaps(source: {
   return missing;
 }
 
-function sourceKindFor(title: string, hasAttachment: boolean, isVerified: boolean): SourceKind {
-  if (isDerivedNavigationTitle(title)) return "derived_index";
-  if (hasAttachment) return "original_attachment";
-  if (isVerified) return "verified_transcript";
-  return "working_ocr";
+function isAdmissibleSource(source: {
+  title: string;
+  is_framework: boolean;
+  source_kind: SourceKind;
+  metadata: LinearSourceMetadata;
+  missing_fields: string[];
+}): boolean {
+  if (source.is_framework) return false;
+  if (source.source_kind === "derived_index") return false;
+  if (isNonAdmissibleDerived(source.title, source.metadata.documentType)) return false;
+  return source.missing_fields.length === 0;
 }
 
 async function paginateIssues(
@@ -343,24 +521,103 @@ async function paginateDocuments(
   return documents;
 }
 
-async function readAttachmentText(
+function guessMime(title: string, contentType: string): string {
+  const ct = contentType.split(";")[0].trim().toLowerCase();
+  if (ct && ct !== "application/octet-stream") return ct;
+  const name = title.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".txt") || name.endsWith(".md")) return "text/plain";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".tif") || name.endsWith(".tiff")) return "image/tiff";
+  if (name.endsWith(".heic") || name.endsWith(".heif")) return "image/heic";
+  return ct || "application/octet-stream";
+}
+
+async function decodeAttachmentBytes(
+  bytes: ArrayBuffer,
+  mime: string,
+  filename: string,
+  ocrApiKey: string | null
+): Promise<string> {
+  const mimeL = mime.toLowerCase();
+  if (
+    mimeL.includes("text/") ||
+    mimeL.includes("json") ||
+    mimeL.includes("markdown")
+  ) {
+    return new TextDecoder("utf-8").decode(bytes).trim().slice(0, 200_000);
+  }
+  if (mimeL.includes("pdf") || filename.toLowerCase().endsWith(".pdf")) {
+    try {
+      const text = (await extractTextFromPdf(bytes.slice(0))).trim();
+      if (text.length >= 10) return text.slice(0, 200_000);
+    } catch {
+      /* OCR fallback below */
+    }
+  }
+  if (ocrApiKey) {
+    try {
+      return (
+        await extractTextFromBytes(
+          bytes,
+          { name: filename, mime },
+          ocrApiKey
+        )
+      ).trim().slice(0, 200_000);
+    } catch {
+      /* fall through to utf8 heuristic */
+    }
+  }
+  const sample = new Uint8Array(bytes).slice(0, 256);
+  if (sample.length > 0) {
+    let printable = 0;
+    for (const b of sample) {
+      if (b === 9 || b === 10 || b === 13 || (b >= 32 && b < 127) || (b >= 160 && b <= 255)) printable += 1;
+    }
+    if (printable / sample.length > 0.8) {
+      try {
+        return new TextDecoder("utf-8").decode(bytes).trim().slice(0, 200_000);
+      } catch {
+        /* invalid utf-8 fallback */
+      }
+    }
+  }
+  return "";
+}
+
+export async function readAttachmentContent(
   attachment: GqlAttachment,
   apiKey: string,
-  fetchImpl: FetchLike
-): Promise<string> {
-  if (!attachment.url) return "";
+  fetchImpl: FetchLike,
+  ocrApiKey: string | null = null
+): Promise<{ text: string; bytes: ArrayBuffer; mime: string }> {
+  const empty = { text: "", bytes: new ArrayBuffer(0), mime: "" };
+  if (!attachment.url) return empty;
   try {
-    const res = await fetchImpl(attachment.url, {
+    let res = await fetchImpl(attachment.url, {
       headers: { Authorization: apiKey },
     });
-    if (!res.ok) return "";
-    const contentType = res.headers.get("content-type") || "";
-    if (contentType.includes("text/") || contentType.includes("json") || contentType.includes("markdown")) {
-      return (await res.text()).slice(0, 200_000);
+    if (!res.ok && res.status >= 400 && res.status < 500) {
+      // S3 / presigned GCS URLs might reject Authorization header with 400/403
+      res = await fetchImpl(attachment.url);
     }
-    return "";
+    if (!res.ok) return empty;
+    const mime = guessMime(
+      attachment.title || "",
+      res.headers.get("content-type") || ""
+    );
+    const bytes = await res.arrayBuffer();
+    const text = await decodeAttachmentBytes(
+      bytes,
+      mime,
+      attachment.title || "attachment",
+      ocrApiKey
+    );
+    return { text, bytes, mime };
   } catch {
-    return "";
+    return empty;
   }
 }
 
@@ -372,65 +629,96 @@ function issueToSources(
   const description = issue.description?.trim() || "";
   const metadata = parseSourceMetadata((issue.title || "") + "\n" + description, labels);
   const attachments = issue.attachments?.nodes || [];
-  const verified = /overen|manuálne skontrol|verified transcript/i.test(description);
   const isFramework = isFrameworkDocument(issue.title, issue.url);
   const identifier = issue.identifier || issue.id;
+  const groupId = canonicalSourceGroupId({
+    title: issue.title,
+    issueId: issue.id,
+    person: metadata.personOrEntity,
+  });
 
   const sources: LinearEvidenceSource[] = [];
 
   if (description) {
+    const source_kind = classifySourceKind({
+      title: issue.title,
+      documentType: metadata.documentType,
+      url: issue.url,
+      isAttachment: false,
+      body: description,
+    });
     const missing = isFramework
       ? ["Dokument 00A nie je dôkazom o skutkovom priebehu."]
-      : admissibilityGaps({
-          title: issue.title,
-          text: description,
-          metadata,
-          hasAttachment: true,
-        });
-    sources.push({
+      : source_kind === "derived_index"
+        ? ["Odvodený register, časová os alebo AI súhrn nie je skutkový dôkaz."]
+        : admissibilityGaps({
+            title: issue.title,
+            text: description,
+            metadata,
+            hasAttachment: attachments.length > 0 || description.length >= 20,
+          });
+    const source: LinearEvidenceSource = {
       linear_project_id: projectId,
       linear_issue_id: issue.id,
       linear_document_id: null,
       attachment_id: null,
+      source_group_id: groupId,
       identifier,
       title: issue.title,
       url: issue.url ?? null,
-      source_kind: sourceKindFor(issue.title, false, verified),
+      source_kind,
       is_framework: isFramework,
-      admissible: !isFramework && missing.length === 0,
+      admissible: false,
       missing_fields: missing,
       metadata,
       text: description,
       content_hash: sha256(description),
-    });
+      mime: "text/markdown",
+    };
+    source.admissible = isAdmissibleSource(source);
+    sources.push(source);
   }
 
   for (const attachment of attachments) {
     const title = attachment.title || `${issue.title} (príloha)`;
+    const source_kind = classifySourceKind({
+      title,
+      documentType: metadata.documentType,
+      url: issue.url,
+      isAttachment: true,
+      filename: attachment.title,
+      body: description,
+    });
     const missing = isFramework
       ? ["Dokument 00A nie je dôkazom o skutkovom priebehu."]
-      : admissibilityGaps({
-          title,
-          text: description,
-          metadata,
-          hasAttachment: true,
-        });
-    sources.push({
+      : source_kind === "derived_index"
+        ? ["Odvodený register, časová os alebo AI súhrn nie je skutkový dôkaz."]
+        : admissibilityGaps({
+            title,
+            text: description,
+            metadata,
+            hasAttachment: true,
+          });
+    const source: LinearEvidenceSource = {
       linear_project_id: projectId,
       linear_issue_id: issue.id,
       linear_document_id: null,
       attachment_id: attachment.id,
+      source_group_id: groupId,
       identifier: `${identifier}:${attachment.id}`,
       title,
       url: attachment.url ?? null,
-      source_kind: sourceKindFor(title, true, verified),
+      source_kind,
       is_framework: isFramework,
-      admissible: !isFramework && missing.length === 0,
+      admissible: false,
       missing_fields: missing,
       metadata,
       text: "",
       content_hash: metadata.hash,
-    });
+      mime: null,
+    };
+    source.admissible = isAdmissibleSource(source);
+    sources.push(source);
   }
 
   if (sources.length === 0) {
@@ -440,22 +728,29 @@ function issueToSources(
       metadata,
       hasAttachment: false,
     });
-    sources.push({
+    const source: LinearEvidenceSource = {
       linear_project_id: projectId,
       linear_issue_id: issue.id,
       linear_document_id: null,
       attachment_id: null,
+      source_group_id: groupId,
       identifier,
       title: issue.title,
       url: issue.url ?? null,
-      source_kind: sourceKindFor(issue.title, false, false),
+      source_kind: classifySourceKind({
+        title: issue.title,
+        documentType: metadata.documentType,
+        url: issue.url,
+      }),
       is_framework: isFramework,
       admissible: false,
       missing_fields: missing,
       metadata,
       text: "",
       content_hash: null,
-    });
+      mime: null,
+    };
+    sources.push(source);
   }
 
   return sources;
@@ -480,6 +775,7 @@ export async function loadLinearCatalog(opts: {
   apiKey: string;
   projectId?: string;
   fetchImpl?: FetchLike;
+  ocrApiKey?: string | null;
 }): Promise<LinearCatalog> {
   const projectId = opts.projectId || ALLOWED_LINEAR_PROJECT_ID;
   if (projectId !== ALLOWED_LINEAR_PROJECT_ID) {
@@ -488,6 +784,10 @@ export async function loadLinearCatalog(opts: {
     );
   }
   const fetchImpl = opts.fetchImpl || fetch;
+  const ocrApiKey =
+    opts.ocrApiKey !== undefined
+      ? opts.ocrApiKey
+      : process.env.MISTRAL_API_KEY || null;
   const { projectName, issues } = await paginateIssues(
     opts.apiKey,
     projectId,
@@ -501,19 +801,57 @@ export async function loadLinearCatalog(opts: {
   for (const issue of issues) {
     const issueSources = issueToSources(issue, projectId);
     for (const source of issueSources) {
-      const dedupeKey = source.attachment_id || source.linear_issue_id || source.identifier;
-      if (dedupeKey && seenKeys.has(dedupeKey)) continue;
-      if (dedupeKey) seenKeys.add(dedupeKey);
+      const dedupeKey = `${source.linear_issue_id || ""}:${source.attachment_id || "body"}`;
+      if (seenKeys.has(dedupeKey)) continue;
+      seenKeys.add(dedupeKey);
 
       if (source.attachment_id && source.url && !source.text) {
         const att = (issue.attachments?.nodes || []).find(
           (a) => a.id === source.attachment_id
         );
         if (att) {
-          const text = await readAttachmentText(att, opts.apiKey, fetchImpl);
-          if (text) {
-            source.text = text;
-            source.content_hash = sha256(text);
+          const downloaded = await readAttachmentContent(
+            att,
+            opts.apiKey,
+            fetchImpl,
+            ocrApiKey
+          );
+          if (downloaded.bytes.byteLength > 0) {
+            source.bytes = downloaded.bytes;
+            source.mime = downloaded.mime || source.mime;
+          }
+          if (downloaded.text) {
+            source.text = downloaded.text;
+            source.content_hash = sha256(downloaded.text);
+            source.source_kind = classifySourceKind({
+              title: source.title,
+              documentType: source.metadata.documentType,
+              url: source.url,
+              isAttachment: true,
+              filename: att.title,
+              mime: downloaded.mime,
+              body: downloaded.text,
+            });
+            const attMeta = parseSourceMetadata(`${source.title}\n${downloaded.text.slice(0, 5000)}`);
+            source.metadata = {
+              personOrEntity: source.metadata.personOrEntity || attMeta.personOrEntity,
+              documentType: source.metadata.documentType || attMeta.documentType,
+              documentDate: source.metadata.documentDate || attMeta.documentDate,
+              dateConflict: source.metadata.dateConflict || attMeta.dateConflict,
+              completeness: source.metadata.completeness || attMeta.completeness,
+              hash: source.metadata.hash || attMeta.hash,
+            };
+            source.missing_fields = isFrameworkDocument(source.title, source.url)
+              ? ["Dokument 00A nie je dôkazom o skutkovom priebehu."]
+              : source.source_kind === "derived_index"
+                ? ["Odvodený register, časová os alebo AI súhrn nie je skutkový dôkaz."]
+                : admissibilityGaps({
+                    title: source.title,
+                    text: source.text,
+                    metadata: source.metadata,
+                    hasAttachment: true,
+                  });
+            source.admissible = isAdmissibleSource(source);
           }
         }
       }
@@ -522,37 +860,54 @@ export async function loadLinearCatalog(opts: {
   }
 
   for (const doc of documents) {
-    const dedupeKey = doc.id;
+    const dedupeKey = `doc:${doc.id}`;
     if (seenKeys.has(dedupeKey)) continue;
     seenKeys.add(dedupeKey);
 
     const isFramework = isFrameworkDocument(doc.title, doc.url);
     const text = doc.content?.trim() || "";
     const metadata = parseSourceMetadata((doc.title || "") + "\n" + text);
+    const source_kind = classifySourceKind({
+      title: doc.title,
+      documentType: metadata.documentType,
+      url: doc.url,
+      body: text,
+    });
     const missing = isFramework
       ? ["Dokument 00A nie je dôkazom o skutkovom priebehu."]
-      : admissibilityGaps({
-          title: doc.title,
-          text,
-          metadata,
-          hasAttachment: text.length > 20,
-        });
-    sources.push({
+      : source_kind === "derived_index"
+        ? ["Odvodený register, časová os alebo AI súhrn nie je skutkový dôkaz."]
+        : admissibilityGaps({
+            title: doc.title,
+            text,
+            metadata,
+            hasAttachment: text.length > 20,
+          });
+    const groupId = canonicalSourceGroupId({
+      title: doc.title,
+      documentId: doc.id,
+      person: metadata.personOrEntity,
+    });
+    const source: LinearEvidenceSource = {
       linear_project_id: projectId,
       linear_issue_id: null,
       linear_document_id: doc.id,
       attachment_id: null,
+      source_group_id: groupId,
       identifier: doc.id,
       title: doc.title,
       url: doc.url ?? null,
-      source_kind: sourceKindFor(doc.title, false, /overen/i.test(text)),
+      source_kind,
       is_framework: isFramework,
-      admissible: !isFramework && missing.length === 0,
+      admissible: false,
       missing_fields: missing,
       metadata,
       text,
       content_hash: text ? sha256(text) : metadata.hash,
-    });
+      mime: "text/markdown",
+    };
+    source.admissible = isAdmissibleSource(source);
+    sources.push(source);
   }
 
   return {
@@ -586,6 +941,7 @@ export async function getLinearStatus(opts: {
       apiKey: opts.apiKey,
       projectId,
       fetchImpl: opts.fetchImpl,
+      ocrApiKey: null,
     });
     return {
       configured: true,

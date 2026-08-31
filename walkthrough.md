@@ -21,6 +21,22 @@ Na stránke ostáva:
 - tlačidlo **Analyzovať Linear dôkazy**
 - volanie `analyzeLinearViaApi`
 
+## Dátová integrita a pravidlá prípustnosti dôkazov
+
+1. **Dátumový konflikt (12.01.2026/2025):**
+   - Pri Marekovi Plchovi je zachovaný ako `dateConflict: "12.01.2026/2025"` a nezrúti sa automaticky do jedného roka.
+2. **Neprípustnosť odvodených registrov a navigačných rámcov:**
+   - `derived_index`, register, časová os, AI súhrn a `SOURCE OF TRUTH` (00A) sú označené ako `admissible: false` a `source_kind: "derived_index"`. Nesmú byť podkladom na potvrdenú odpoveď.
+3. **Deduplikácia cez `source_group_id`:**
+   - OCR, textový prepis a originál z tej istej zápisnice (napr. DÔKAZ 09 / Marek Plch) zdieľajú spoločný `source_group_id` (napr. `evidence-09`) a v `independentOrigins` sa počítajú ako jeden zdroj (nepredstavujú samostatné nezávislé potvrdenie).
+4. **Klasifikácia prepisov v prílohách:**
+   - Textové prepisy priložené ako súbory sú klasifikované ako `verified_transcript` alebo `working_ocr`, nie ako `original_attachment`.
+5. **Reálne spracovanie a extrakcia príloh:**
+   - Prílohy z Linear sa sťahujú priamo cez `readAttachmentContent`, dekódujú sa bajty (PDF text / OCR / UTF-8) a extrahovaný text sa zapíše do `source.text`, čím sa stávajú plnohodnotnou súčasťou analýzy.
+6. **Bezpečnosť a fail-closed správanie:**
+   - V logoch a výstupoch sa nikdy nezobrazujú kľúče ani ich prefixy (`configured: true/false`).
+   - Pri chybe `test-linear-live.ts` nastaví `process.exitCode = 1`.
+
 ## Drag & Drop v repozitári
 
 Drag & Drop **nebol odstránený z celého projektu**.

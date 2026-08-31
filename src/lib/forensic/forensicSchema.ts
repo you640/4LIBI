@@ -34,6 +34,7 @@ const evidenceSchema = {
     linear_issue_id: { type: ["string", "null"] },
     linear_document_id: { type: ["string", "null"] },
     attachment_id: { type: ["string", "null"] },
+    source_group_id: { type: ["string", "null"] },
   },
 } as const;
 

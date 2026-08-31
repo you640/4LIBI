@@ -33,7 +33,32 @@ export interface ForensicSourceDocument {
     linear_issue_id?: string;
     linear_document_id?: string;
     attachment_id?: string;
+    source_group_id?: string;
   };
+}
+
+function stampSourceGroup(
+  analysis: ForensicDocumentAnalysis,
+  groupId: string | null | undefined
+) {
+  if (!groupId) return;
+  const stamp = (items: { source_group_id?: string | null }[]) => {
+    for (const item of items) {
+      if (!item.source_group_id) item.source_group_id = groupId;
+    }
+  };
+  for (const actor of analysis.questions.weapons_flow.actors) {
+    stamp(actor.evidence);
+    stamp(actor.contradicting_evidence);
+  }
+  stamp(analysis.questions.plan_author.evidence);
+  for (const c of analysis.questions.plan_author.candidates) {
+    stamp(c.evidence);
+    stamp(c.contradicting_evidence);
+  }
+  stamp(analysis.questions.financing.evidence);
+  for (const p of analysis.questions.financing.payers) stamp(p.evidence);
+  for (const s of analysis.questions.financing.funding_sources) stamp(s.evidence);
 }
 
 export function forensicDocumentId(name: string, index: number): string {
@@ -205,6 +230,7 @@ export async function analyzeForensicDocument(
     chunkResults.length === 1 ? chunkResults[0] : mergeAnalyses(chunkResults);
   merged.document_id = documentId;
   merged.document_hash = documentHash;
+  stampSourceGroup(merged, doc.linearMeta?.source_group_id || doc.linearMeta?.linear_issue_id || doc.linearMeta?.linear_document_id || null);
 
   return {
     status: "ready",

@@ -148,16 +148,110 @@ describe("Linear source-of-truth gate & Forensic Integration", () => {
     });
   });
 
-  describe("F. deduplikácia", () => {
-    it("deduplikuje podľa attachment ID a hash cez nezávislé pôvody", () => {
+  describe("F. deduplikácia a source_group_id", () => {
+    it("OCR, prepis a originál z tej istej zápisnice sú jeden source_group", () => {
       const origins = independentOrigins([
-        ev({ quote: "A", linear_issue_id: "issue-1", attachment_id: "att-1" }),
-        ev({ quote: "B", linear_issue_id: "issue-1", attachment_id: "att-1" }), // Same attachment
-        ev({ quote: "C", linear_issue_id: "issue-1", attachment_id: "att-2" }), // Different attachment
-        ev({ quote: "D", linear_issue_id: "issue-2", attachment_id: null }), // No attachment, different issue
+        ev({ quote: "A", linear_issue_id: "issue-1", attachment_id: "att-orig", source_group_id: "evidence-09" }),
+        ev({ quote: "A OCR", linear_issue_id: "issue-1", attachment_id: "att-ocr", source_group_id: "evidence-09" }),
+        ev({ quote: "A prepis", linear_issue_id: "issue-1", attachment_id: null, source_group_id: "evidence-09" }),
+        ev({ quote: "D", linear_issue_id: "issue-2", attachment_id: null, source_group_id: "evidence-08" }),
       ]);
-      expect(origins).toEqual(["att:issue-1:att-1", "att:issue-1:att-2", "issue:issue-2"]);
-      expect(origins.length).toBe(3);
+      expect(origins).toEqual(["group:evidence-09", "group:evidence-08"]);
+    });
+
+    it("canonicalSourceGroupId priradí rovnaké ID pre OCR, prepis a dokument rovnakej výpovede", async () => {
+      const { canonicalSourceGroupId } = await import("../../src/lib/forensic/linearClient");
+      const g1 = canonicalSourceGroupId({ title: "DÔKAZ 09 – Výsluch svedka Mareka Plcha" });
+      const g2 = canonicalSourceGroupId({ title: "Čitateľný pracovný prepis – Marek Plch" });
+      const g3 = canonicalSourceGroupId({ title: "09 – Žilina, 12.01.2026/2025 – Výsluch svedka Mareka Plcha" });
+
+      expect(g1).toBe("evidence-09");
+      expect(g2).toBe("person-marek-plch");
+      expect(g3).toBe("evidence-09");
+    });
+  });
+
+  describe("G. dátumový konflikt Mareka Plcha", () => {
+    it("12.01.2026/2025 je zachované ako dateConflict a nezrúti sa do jedného roka", async () => {
+      const { parseSourceMetadata } = await import("../../src/lib/forensic/linearClient");
+      const meta = parseSourceMetadata(
+        "DÔKAZ 09 – Výsluch svedka Mareka Plcha (TATRAGEN), 12.01.2026/2025\n" +
+        "* **Titulná strana:** 12.01.2026 o 10:15\n" +
+        "* **Hlavičky strán 2–7:** 12.01.2025\n" +
+        "* **Rozsah:** 7 obrazových strán"
+      );
+      expect(meta.dateConflict).toBe("12.01.2026/2025");
+      expect(meta.personOrEntity).toBe("Marek Plch");
+    });
+  });
+
+  describe("H. neprípustnosť derived_index a framework dokumentov", () => {
+    it("register, časová os, index a 00A nie sú admissible", async () => {
+      const { classifySourceKind } = await import("../../src/lib/forensic/linearClient");
+      const { isNonAdmissibleDerived } = await import("../../src/lib/forensic/sourceOfTruth");
+
+      expect(isNonAdmissibleDerived("04 – Register spisov, listín a dôkazov")).toBe(true);
+      expect(isNonAdmissibleDerived("05 – Časová os a hlavný súhrn")).toBe(true);
+      expect(isNonAdmissibleDerived("00 – Hlavný index")).toBe(true);
+      expect(isNonAdmissibleDerived("00A – SOURCE OF TRUTH")).toBe(true);
+
+      expect(classifySourceKind({ title: "04 – Register spisov, listín a dôkazov" })).toBe("derived_index");
+      expect(classifySourceKind({ title: "05 – Časová os a hlavný súhrn" })).toBe("derived_index");
+      expect(classifySourceKind({ title: "00 – Hlavný index" })).toBe("derived_index");
+    });
+  });
+
+  describe("I. správna klasifikácia prepisu v prílohe", () => {
+    it("textový prepis nie je klasifikovaný ako original_attachment", async () => {
+      const { classifySourceKind } = await import("../../src/lib/forensic/linearClient");
+
+      const k1 = classifySourceKind({
+        title: "Čitateľný textový prepis",
+        isAttachment: true,
+        filename: "prepis.txt",
+        mime: "text/plain",
+      });
+      expect(k1).toBe("verified_transcript");
+
+      const k2 = classifySourceKind({
+        title: "Čitateľný pracovný prepis – Marek Plch",
+        isAttachment: true,
+        filename: "prepis.txt",
+      });
+      expect(k2).toBe("verified_transcript");
+
+      const k3 = classifySourceKind({
+        title: "Komprimovaná kópia pôvodného PDF",
+        isAttachment: true,
+        filename: "original.pdf",
+        mime: "application/pdf",
+      });
+      expect(k3).toBe("original_attachment");
+    });
+  });
+
+  describe("J. reálne spracovanie a extrakcia attachmentu", () => {
+    it("readAttachmentContent načíta a dekóduje text z prílohy", async () => {
+      const { readAttachmentContent } = await import("../../src/lib/forensic/linearClient");
+      const sampleText = "PRACOVNÝ PREPIS ZÁPISNICE O VÝSLUCHU SVEDKA Mareka Plcha.";
+      const sampleBytes = new TextEncoder().encode(sampleText).buffer as ArrayBuffer;
+
+      const mockFetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/plain; charset=utf-8" }),
+        arrayBuffer: async () => sampleBytes,
+      });
+
+      const result = await readAttachmentContent(
+        { id: "att-1", title: "prepis.txt", url: "https://linear.app/attachment/1" },
+        "test-key",
+        mockFetch as unknown as typeof fetch
+      );
+
+      expect(result.text).toBe(sampleText);
+      expect(result.bytes.byteLength).toBe(sampleBytes.byteLength);
+      expect(result.mime).toBe("text/plain");
     });
   });
 });

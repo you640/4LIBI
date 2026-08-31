@@ -12,16 +12,14 @@ export function sourceRank(kind: SourceKind): number {
   return SOURCE_RANK[kind] ?? 99;
 }
 
-/** Same original Linear record — transcript/register/timeline must not count thrice. */
-export function originKey(citation: Pick<
-  ForensicCitation,
-  "linear_issue_id" | "linear_document_id" | "attachment_id"
->): string {
-  if (citation.attachment_id) {
-    const parent =
-      citation.linear_issue_id || citation.linear_document_id || "unknown";
-    return `att:${parent}:${citation.attachment_id}`;
-  }
+/** Same zápisnica group — OCR, prepis and original share one origin. */
+export function originKey(
+  citation: Pick<
+    ForensicCitation,
+    "linear_issue_id" | "linear_document_id" | "attachment_id"
+  > & { source_group_id?: string | null }
+): string {
+  if (citation.source_group_id) return `group:${citation.source_group_id}`;
   if (citation.linear_issue_id) return `issue:${citation.linear_issue_id}`;
   if (citation.linear_document_id) return `doc:${citation.linear_document_id}`;
   return "unknown";
@@ -57,6 +55,7 @@ export function independentOrigins(
   citations: Array<
     Pick<ForensicCitation, "linear_issue_id" | "linear_document_id" | "attachment_id"> & {
       source_kind?: SourceKind;
+      source_group_id?: string | null;
     }
   >
 ): string[] {

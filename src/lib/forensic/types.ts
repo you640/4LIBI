@@ -23,6 +23,7 @@ export interface ForensicEvidence {
   linear_issue_id: string | null;
   linear_document_id: string | null;
   attachment_id: string | null;
+  source_group_id?: string | null;
 }
 
 export interface ForensicActor {

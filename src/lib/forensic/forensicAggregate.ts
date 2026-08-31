@@ -345,13 +345,20 @@ export function quotesEquivalent(a: string, b: string): boolean {
   return fa === fb || fa.includes(fb) || fb.includes(fa);
 }
 
+function evidenceOrigin(ev: ForensicEvidence): string {
+  if (ev.source_group_id) return `group:${ev.source_group_id}`;
+  if (ev.linear_issue_id) return `issue:${ev.linear_issue_id}`;
+  if (ev.linear_document_id) return `doc:${ev.linear_document_id}`;
+  return ev.document_id;
+}
+
 export function independentEvidence(items: ForensicEvidence[]): ForensicEvidence[] {
   const independent: ForensicEvidence[] = [];
   for (const item of items) {
     const derived = independent.some(
       (kept) =>
         quotesEquivalent(kept.quote, item.quote) ||
-        kept.document_id === item.document_id
+        evidenceOrigin(kept) === evidenceOrigin(item)
     );
     if (!derived) independent.push(item);
   }
