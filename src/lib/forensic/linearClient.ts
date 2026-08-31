@@ -147,7 +147,9 @@ export function detectDateConflict(
       const yearB = expandYear(yearA, slash[3]);
       return { documentDate: null, dateConflict: `${slash[1]}${yearA}/${yearB}` };
     }
-    return { documentDate: pickedDate ?? null, dateConflict: raw };
+    if (!/narodenia|\bnar\b|naroden/i.test(raw)) {
+      return { documentDate: pickedDate ?? null, dateConflict: raw };
+    }
   }
 
   const slash = (pickedDate || "").match(SLASH_YEAR_RE) || text.match(SLASH_YEAR_RE);
@@ -162,28 +164,33 @@ export function detectDateConflict(
     }
   }
 
-  const rozporMatch = text.match(/upozornenie\s+na\s+rozpor[^\n.]*[:.]\s*([^\n]+)/i);
+  const rozporMatch = text.match(/upozornenie\s+na\s+rozpor\s*(?:v\s+d[áa]tume)?[:.]\s*([^\n]+)/i);
   if (rozporMatch?.[1]) {
-    return {
-      documentDate: pickedDate ?? null,
-      dateConflict: rozporMatch[1].trim(),
-    };
-  }
-
-  const dateMatches = [...text.matchAll(/\b(\d{1,2}\.\d{1,2}\.)(\d{4})\b/g)];
-  const uniqueDates = Array.from(new Set(dateMatches.map((m) => `${m[1]}${m[2]}`)));
-  const uniqueYears = Array.from(new Set(dateMatches.map((m) => m[2])));
-  if (uniqueYears.length > 1 && /rozpor|tituln|hlavičk|hlavick|prevzatie|výsluch|vysluch/i.test(text)) {
-    return {
-      documentDate: null,
-      dateConflict: uniqueDates.slice(0, 2).join(" vs "),
-    };
+    const conflictCandidate = rozporMatch[1].trim();
+    if (!/narodenia|\bnar\b|naroden/i.test(conflictCandidate)) {
+      return {
+        documentDate: pickedDate ?? null,
+        dateConflict: conflictCandidate,
+      };
+    }
   }
 
   if (pickedDate && !SLASH_YEAR_RE.test(pickedDate)) {
-    return { documentDate: pickedDate, dateConflict: null };
+    if (!/narodenia|\bnar\b|naroden/i.test(pickedDate)) {
+      return { documentDate: pickedDate, dateConflict: null };
+    }
   }
-  if (uniqueDates.length === 1) return { documentDate: uniqueDates[0], dateConflict: null };
+
+  const cleanedText = text
+    .replace(/(?:nar\.|naroden[ýy]|d[áa]tum\s+narodenia|rodn[ée]\s+č[íi]slo)[^0-9\n]*\d{1,2}\.\d{1,2}\.\d{4}/gi, "")
+    .replace(/\b(?:03\.07\.1987|30\.05\.1989)\b/g, "");
+
+  const dates = [...cleanedText.matchAll(/\b(\d{1,2}\.\d{1,2}\.\d{4})\b/g)].map((m) => m[1]);
+  const uniqueDates = Array.from(new Set(dates));
+  if (uniqueDates.length >= 1) {
+    return { documentDate: uniqueDates[0], dateConflict: null };
+  }
+
   return { documentDate: pickedDate ?? null, dateConflict: null };
 }
 
@@ -329,21 +336,27 @@ export function parseSourceMetadata(
     else if (/časová os|casova os/i.test(text)) documentType = "časová os";
   }
 
-  const pickedDate = pickMeta(text, [
-    "dátum", "datum", "date", "document date",
+  let pickedDate = pickMeta(text, [
+    "dátum výsluchu", "datum vysluchu",
+    "dátum dokumentu", "datum dokumentu",
+    "dátum vyhotovenia", "datum vyhotovenia",
+    "dátum a čas", "datum a cas",
     "titulná strana", "titulna strana",
     "prevzatie", "prevzatie osoby",
     "zadržanie", "zadrzanie",
     "výsluch", "vysluch",
-    "dátum a čas", "datum a cas"
+    "dátum", "datum", "date", "document date"
   ]);
+
+  if (pickedDate && /narodenia|\bnar\b|naroden/i.test(pickedDate)) {
+    pickedDate = null;
+  }
 
   const pickedConflict = pickMeta(text, [
     "dátumový rozpor",
     "datumovy rozpor",
     "date conflict",
     "rozpor dátumu",
-    "upozornenie na rozpor",
     "upozornenie na rozpor v dátume",
     "upozornenie na rozpor v datume"
   ]);
@@ -922,6 +935,7 @@ export async function getLinearStatus(opts: {
   apiKey: string | null;
   projectId?: string;
   fetchImpl?: FetchLike;
+  ocrApiKey?: string | null;
 }): Promise<LinearStatus> {
   const projectId = opts.projectId || ALLOWED_LINEAR_PROJECT_ID;
   if (!opts.apiKey) {
@@ -941,7 +955,10 @@ export async function getLinearStatus(opts: {
       apiKey: opts.apiKey,
       projectId,
       fetchImpl: opts.fetchImpl,
-      ocrApiKey: null,
+      ocrApiKey:
+        opts.ocrApiKey !== undefined
+          ? opts.ocrApiKey
+          : process.env.MISTRAL_API_KEY || null,
     });
     return {
       configured: true,

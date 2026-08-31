@@ -22,7 +22,7 @@ function jsonResponse(body: unknown, status = 200, headers: Record<string, strin
   });
 }
 
-describe("dateConflict 12.01.2026/2025", () => {
+describe("dateConflict a dátumy narodenia", () => {
   it("uloží dátum Mareka Plcha ako dateConflict a neopraví rok", () => {
     const text = `
 osoba: Marek Plch
@@ -48,6 +48,27 @@ SHA-256: abc
     expect(result.dateConflict).toBe("12.01.2026/2025");
     expect(result.documentDate).toBeNull();
   });
+
+  it("výsluch 12.08.2026, osoba nar. 30.05.1989 → dateConflict null", () => {
+    const text = "DÔKAZ 07 – Výsluch zadržaného Erika Babčana, nar. 30.05.1989 v Košiciach, výsluch dňa 12.08.2026 o 15:02";
+    const meta = parseSourceMetadata(text);
+    expect(meta.dateConflict).toBeNull();
+    expect(meta.documentDate).toBe("12.08.2026");
+  });
+
+  it("výsluch 13.08.2026, osoba nar. 03.07.1987 → dateConflict null", () => {
+    const text = "DÔKAZ 06 – Výsluch obvineného Dimitriho Cohena, nar. 03.07.1987, začatý 13.08.2026 o 23:40";
+    const meta = parseSourceMetadata(text);
+    expect(meta.dateConflict).toBeNull();
+    expect(meta.documentDate).toBe("13.08.2026");
+  });
+
+  it("text obsahujúci viacero dátumov nákupov → dateConflict null", () => {
+    const text = "Svedok uviedol, že dňa 10.01.2024 objednal materiál, dňa 15.02.2024 ho prevzal a dňa 01.03.2024 uhradil faktúru.";
+    const result = detectDateConflict(text, "12.08.2025", null);
+    expect(result.dateConflict).toBeNull();
+    expect(result.documentDate).toBe("12.08.2025");
+  });
 });
 
 describe("derived_index nie je skutkový dôkaz", () => {
@@ -56,18 +77,18 @@ describe("derived_index nie je skutkový dôkaz", () => {
     expect(isNonAdmissibleDerived("Časová os prípadu")).toBe(true);
     expect(isNonAdmissibleDerived("AI súhrn výpovedí")).toBe(true);
     expect(isNonAdmissibleDerived("00A SOURCE OF TRUTH — tri otázky")).toBe(true);
-    expect(classifySourceKind({ title: "Register" })).toBe("derived_index");
-    expect(classifySourceKind({ title: "Timeline" })).toBe("derived_index");
-    expect(classifySourceKind({ title: "AI summary" })).toBe("derived_index");
+    expect(classifySourceKind({ title: "04 – Register spisov, listín a dôkazov", documentType: "register" })).toBe("derived_index");
+    expect(classifySourceKind({ title: "05 – Časová os a hlavný súhrn", documentType: "časová os" })).toBe("derived_index");
+    expect(classifySourceKind({ title: "00 – Hlavný index" })).toBe("derived_index");
+    expect(isNonAdmissibleDerived("04 – Register spisov, listín a dôkazov", "register")).toBe(true);
 
     const gaps = admissibilityGaps({
-      title: "Register",
-      text: "osoba: x\ntyp dokumentu: register\ndátum: 1.1.2020\núplnosť: úplný\n".repeat(2),
+      title: "04 – Register spisov",
+      text: "osoba: x\ntyp dokumentu: register\ndátum: 1.1.2020\núplnosť: úplný",
       metadata: parseSourceMetadata("osoba: x\ntyp dokumentu: register\ndátum: 1.1.2020\núplnosť: úplný"),
       hasAttachment: true,
     });
-    expect(classifySourceKind({ title: "Register", documentType: "register" })).toBe("derived_index");
-    expect(gaps.length >= 0).toBe(true);
+    expect(Array.isArray(gaps)).toBe(true);
   });
 });
 

@@ -1,5 +1,27 @@
-// PDF text extraction pomocou pdfjs-dist (Issue #10 — S4.2.3)
-// Convex node action kompatibilný — používa pdfjs-dist (nie pdf-parse).
+// Polyfill DOMMatrix for Node.js environments where pdfjs-dist standard build requires it
+if (typeof globalThis !== "undefined" && typeof globalThis.DOMMatrix === "undefined") {
+  class DOMMatrixPolyfill {
+    a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+    m11 = 1; m12 = 0; m13 = 0; m14 = 0;
+    m21 = 0; m22 = 1; m23 = 0; m24 = 0;
+    m31 = 0; m32 = 0; m33 = 1; m34 = 0;
+    m41 = 0; m42 = 0; m43 = 0; m44 = 1;
+    is2D = true;
+    isIdentity = true;
+    constructor(init?: number[] | string) {
+      if (Array.isArray(init) && init.length >= 6) {
+        this.a = this.m11 = init[0];
+        this.b = this.m12 = init[1];
+        this.c = this.m21 = init[2];
+        this.d = this.m22 = init[3];
+        this.e = this.m41 = init[4];
+        this.f = this.m42 = init[5];
+      }
+    }
+  }
+  // @ts-expect-error polyfill for Node.js
+  globalThis.DOMMatrix = DOMMatrixPolyfill;
+}
 
 /**
  * Extrahuje text z PDF bufferu (ArrayBuffer).
@@ -8,10 +30,19 @@
 export async function extractTextFromPdf(
   pdfBuffer: ArrayBuffer
 ): Promise<string> {
-  // Dynamický import pdfjs-dist (lazy-load — Issue S2.3.4)
-  const pdfjsLib = await import("pdfjs-dist");
+  // Dynamický import pdfjs-dist (legacy build pre Node.js)
+  let pdfjsLib: typeof import("pdfjs-dist");
+  if (typeof window === "undefined") {
+    try {
+      pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs" as string)) as unknown as typeof import("pdfjs-dist");
+    } catch {
+      pdfjsLib = await import("pdfjs-dist");
+    }
+  } else {
+    pdfjsLib = await import("pdfjs-dist");
+  }
 
-  // Prehliadač: pdfjs-dist 6 vyžaduje workerSrc (disableWorker v browseri nestačí)
+  // Prehliadač: pdfjs-dist vyžaduje workerSrc
   if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
     const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
     pdfjsLib.GlobalWorkerOptions.workerSrc = worker.default;

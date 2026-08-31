@@ -171,7 +171,7 @@ describe("Linear source-of-truth gate & Forensic Integration", () => {
     });
   });
 
-  describe("G. dátumový konflikt Mareka Plcha", () => {
+  describe("G. dátumový konflikt Mareka Plcha a eliminácia falošných konfliktov z dátumov narodenia", () => {
     it("12.01.2026/2025 je zachované ako dateConflict a nezrúti sa do jedného roka", async () => {
       const { parseSourceMetadata } = await import("../../src/lib/forensic/linearClient");
       const meta = parseSourceMetadata(
@@ -182,6 +182,32 @@ describe("Linear source-of-truth gate & Forensic Integration", () => {
       );
       expect(meta.dateConflict).toBe("12.01.2026/2025");
       expect(meta.personOrEntity).toBe("Marek Plch");
+    });
+
+    it("výsluch 12.08.2026, osoba nar. 30.05.1989 → dateConflict null", async () => {
+      const { parseSourceMetadata } = await import("../../src/lib/forensic/linearClient");
+      const meta = parseSourceMetadata(
+        "DÔKAZ 07 – Výsluch zadržaného Erika Babčana, nar. 30.05.1989 v Košiciach, výsluch dňa 12.08.2026 o 15:02"
+      );
+      expect(meta.dateConflict).toBeNull();
+      expect(meta.documentDate).toBe("12.08.2026");
+    });
+
+    it("výsluch 13.08.2026, osoba nar. 03.07.1987 → dateConflict null", async () => {
+      const { parseSourceMetadata } = await import("../../src/lib/forensic/linearClient");
+      const meta = parseSourceMetadata(
+        "DÔKAZ 06 – Výsluch obvineného Dimitriho Cohena, nar. 03.07.1987, začatý 13.08.2026 o 23:40"
+      );
+      expect(meta.dateConflict).toBeNull();
+      expect(meta.documentDate).toBe("13.08.2026");
+    });
+
+    it("text obsahujúci viacero dátumov nákupov → dateConflict null", async () => {
+      const { detectDateConflict } = await import("../../src/lib/forensic/linearClient");
+      const text = "Svedok uviedol, že dňa 10.01.2024 objednal materiál, dňa 15.02.2024 ho prevzal a dňa 01.03.2024 uhradil faktúru.";
+      const result = detectDateConflict(text, "12.08.2025", null);
+      expect(result.dateConflict).toBeNull();
+      expect(result.documentDate).toBe("12.08.2025");
     });
   });
 
