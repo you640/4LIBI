@@ -7,6 +7,7 @@ import {
   analyzeFilesFromBytes,
   analyzeForensicLinearFromBytes,
   omitForensic,
+  type SourceDocument,
 } from "../src/lib/analyzeCore";
 import { resolveAnalysisQueueName } from "./queueName";
 
@@ -98,7 +99,7 @@ async function processAnalysisJob(job: Job<AnalysisJobData>) {
       processedFiles: 0,
     });
 
-    const docs: { name: string; mime: string; bytes: ArrayBuffer; linearMeta?: unknown }[] = [];
+    const docs: SourceDocument[] = [];
 
     for (let i = 0; i < filePaths.length; i++) {
       const filePath = filePaths[i];
